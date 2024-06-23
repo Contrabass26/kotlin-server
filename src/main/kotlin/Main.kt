@@ -1,6 +1,9 @@
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.formdev.flatlaf.FlatDarculaLaf
 import com.formdev.flatlaf.FlatLightLaf
 import com.jthemedetecor.OsThemeDetector
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import java.awt.Font
 import java.awt.GridBagConstraints
 import java.awt.Insets
@@ -27,22 +30,30 @@ fun getConstraints(
     gridy: Int,
     gridwidth: Int = 1,
     gridheight: Int = 1,
-    weightx: Double = 0.0,
-    weighty: Double = 0.0,
+    weightx: Double? = null,
+    weighty: Double? = null,
     anchor: Int = GridBagConstraints.NORTH,
+    fill: Int? = null,
     insets: Insets = Insets(0, 0, 0, 0),
     ipadx: Int = 0,
     ipady: Int = 0
 ): GridBagConstraints {
-    var fill = GridBagConstraints.NONE
-    if (weightx > 0 && weighty > 0) {
-        fill = GridBagConstraints.BOTH
-    } else if (weightx > 0) {
-        fill = GridBagConstraints.HORIZONTAL
-    } else if (weighty > 0) {
-        fill = GridBagConstraints.VERTICAL
+    val weightx1: Double; val weighty1: Double; val fill1: Int
+    if (fill != null) {
+        weightx1 = weightx ?: if (fill == GridBagConstraints.HORIZONTAL || fill == GridBagConstraints.BOTH) 1.0 else 0.0;
+        weighty1 = weighty ?: if (fill == GridBagConstraints.VERTICAL || fill == GridBagConstraints.BOTH) 1.0 else 0.0;
+        fill1 = fill
+    } else {
+        weightx1 = weightx ?: 0.0
+        weighty1 = weighty ?: 0.0
+        fill1 = when {
+            weightx1 > 0 && weighty1 > 0 -> GridBagConstraints.BOTH
+            weightx1 > 0 -> GridBagConstraints.HORIZONTAL
+            weighty1 > 0 -> GridBagConstraints.VERTICAL
+            else -> GridBagConstraints.NONE
+        }
     }
-    return GridBagConstraints(gridx, gridy, gridwidth, gridheight, weightx, weighty, anchor, fill, insets, ipadx, ipady)
+    return GridBagConstraints(gridx, gridy, gridwidth, gridheight, weightx1, weighty1, anchor, fill1, insets, ipadx, ipady)
 }
 
 // Utility to create Insets
@@ -50,7 +61,13 @@ fun getInsets(top: Int = 0, left: Int = 0, bottom: Int = 0, right: Int = 0): Ins
     return Insets(top, left, bottom, right)
 }
 
-fun main() {
+// JSON object mapper
+val JSON_MAPPER = ObjectMapper()
+
+// Start screen instance
+val START_SCREEN = StartScreen()
+
+fun main() = runBlocking {
     // Initialise GUI appearance
     val themeDetector = OsThemeDetector.getDetector()
     if (themeDetector.isDark) {
@@ -58,6 +75,8 @@ fun main() {
     } else {
         FlatLightLaf.setup()
     }
+    // Load servers
+    launch { loadServers() }
     // Start screen
     val startScreen = StartScreen()
 }
