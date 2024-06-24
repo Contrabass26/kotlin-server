@@ -33,6 +33,9 @@ dependencies {
 
     // Apache commons lang
     implementation("org.apache.commons:commons-lang3:3.13.0")
+
+    // Apache commons IO
+    implementation("commons-io:commons-io:2.15.1")
 }
 
 tasks.test {

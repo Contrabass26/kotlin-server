@@ -41,7 +41,7 @@ class ConsolePanel : JPanel() {
         // Output box
         outputBox.font = MONOSPACED_FONT
         val scrollPane = JScrollPane(outputBox, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED)
-        add(scrollPane, getConstraints(1, 2, gridwidth = 2, fill = GridBagConstraints.BOTH, insets = getInsets(left = 5, bottom = 5, right = 5)))
+        add(scrollPane, getConstraints(1, 2, gridwidth = 2, fill = GridBagConstraints.BOTH, insets = getInsets(left = 5, right = 5)))
         // Input box
         val textField = JTextField()
         textField.addKeyListener(object : KeyAdapter() {
@@ -74,7 +74,7 @@ class ConsolePanel : JPanel() {
         startBtn.text = "Stop"
         reader = process!!.inputReader()
         writer = process!!.outputWriter()
-        thread {
+        launch {
             reader.use { reader ->
                 reader!!.lines().forEach {
                     outputBox.append(it + "\n")
