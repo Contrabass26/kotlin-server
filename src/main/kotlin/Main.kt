@@ -4,10 +4,7 @@ import com.formdev.flatlaf.FlatLightLaf
 import com.jthemedetecor.OsThemeDetector
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import java.awt.Font
-import java.awt.GridBagConstraints
-import java.awt.Insets
-import java.awt.Toolkit
+import java.awt.*
 import javax.swing.JFrame
 
 // Screen size
@@ -61,13 +58,20 @@ fun getInsets(top: Int = 0, left: Int = 0, bottom: Int = 0, right: Int = 0): Ins
     return Insets(top, left, bottom, right)
 }
 
+// Utility to repaint and revalidate
+fun Component.refreshGui() {
+    repaint()
+    revalidate()
+}
+
 // JSON object mapper
 val JSON_MAPPER = ObjectMapper()
 
 // Start screen instance
-val START_SCREEN = StartScreen()
+var START_SCREEN: StartScreen? = null
+var MAIN_SCREEN: MainScreen? = null
 
-fun main() = runBlocking {
+fun main(): Unit = runBlocking {
     // Initialise GUI appearance
     val themeDetector = OsThemeDetector.getDetector()
     if (themeDetector.isDark) {
@@ -75,8 +79,9 @@ fun main() = runBlocking {
     } else {
         FlatLightLaf.setup()
     }
+    // Start screen
+    START_SCREEN = StartScreen()
+    MAIN_SCREEN = MainScreen()
     // Load servers
     launch { loadServers() }
-    // Start screen
-    val startScreen = StartScreen()
 }

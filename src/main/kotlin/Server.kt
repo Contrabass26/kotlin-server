@@ -1,5 +1,6 @@
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.ArrayNode
+import kotlinx.coroutines.delay
 import java.io.File
 import java.io.IOException
 import javax.swing.DefaultListModel
@@ -35,7 +36,7 @@ fun loadServers() {
     }
 }
 
-class Server(val name: String, val location: String, val lastOpened: Int) : Comparable<Server> {
+class Server(val name: String, val location: File, val lastOpened: Int) : Comparable<Server> {
 
     data class StartScreenComponents(val label: JLabel, val openBtn: JButton)
 
@@ -43,13 +44,16 @@ class Server(val name: String, val location: String, val lastOpened: Int) : Comp
 
     constructor(data: JsonNode) : this(
         data.get("name").textValue(),
-        data.get("location").textValue(),
+        File(data.get("location").textValue()),
         data.get("lastOpened").intValue()
     )
 
     fun delete() {
         // Remove from start screen
-
+        if (startScreenComponents != null) {
+            START_SCREEN!!.remove(startScreenComponents!!.label)
+            START_SCREEN!!.remove(startScreenComponents!!.openBtn)
+        }
     }
 
     override fun compareTo(other: Server): Int {
