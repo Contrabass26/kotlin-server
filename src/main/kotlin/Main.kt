@@ -86,17 +86,22 @@ val JSON_MAPPER = ObjectMapper()
 var START_SCREEN: StartScreen? = null
 var MAIN_SCREEN: MainScreen? = null
 
-fun main(): Unit = runBlocking {
-    // Initialise GUI appearance
-    val themeDetector = OsThemeDetector.getDetector()
-    if (themeDetector.isDark) {
-        FlatDarculaLaf.setup()
-    } else {
-        FlatLightLaf.setup()
+class Main {
+    companion object {
+        @JvmStatic
+        fun main(args: Array<String>): Unit = runBlocking {
+            // Initialise GUI appearance
+            val themeDetector = OsThemeDetector.getDetector()
+            if (themeDetector.isDark) {
+                FlatDarculaLaf.setup()
+            } else {
+                FlatLightLaf.setup()
+            }
+            // Start screen
+            START_SCREEN = StartScreen()
+            MAIN_SCREEN = MainScreen()
+            // Load servers
+            launch { loadServers() }
+        }
     }
-    // Start screen
-    START_SCREEN = StartScreen()
-    MAIN_SCREEN = MainScreen()
-    // Load servers
-    launch { loadServers() }
 }
