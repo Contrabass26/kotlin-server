@@ -1,6 +1,7 @@
 import kotlinx.coroutines.*
 import kotlinx.coroutines.swing.Swing
 import java.awt.Color
+import java.awt.Dimension
 import java.awt.GridBagConstraints
 import java.awt.GridBagLayout
 import java.awt.event.KeyAdapter
@@ -17,7 +18,11 @@ class ConsolePanel : JPanel() {
     private var writer: BufferedWriter? = null
     private var reader: BufferedReader? = null
     private var server: Server? = null
-    private val outputBox = JTextArea()
+    private val outputBox = object : JTextArea() {
+        override fun getPreferredSize(): Dimension {
+            return Dimension(400, 400)
+        }
+    }
     private val startBtn: JButton
 
     init {
