@@ -6,12 +6,16 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.awt.*
 import javax.swing.JFrame
+import javax.swing.event.DocumentEvent
+import javax.swing.event.DocumentListener
+import javax.swing.text.Document
 
 // Screen size
 val SCREEN_SIZE = Toolkit.getDefaultToolkit().screenSize!!
 
-// Font - Windows default
+// Font - Windows default and monospace
 val FONT = Font("Segoe UI", Font.PLAIN, 12)
+val MONOSPACED_FONT = Font("Monospaced", Font.PLAIN, 12)
 
 // Utility extension to set frame size based on screen resolution
 fun JFrame.setSize(widthProp: Double, heightProp: Double) {
@@ -62,6 +66,17 @@ fun getInsets(top: Int = 0, left: Int = 0, bottom: Int = 0, right: Int = 0): Ins
 fun Component.refreshGui() {
     repaint()
     revalidate()
+}
+
+// Utility for easy document listeners
+fun Document.addDocumentListener(consumer: (DocumentEvent?) -> Unit) {
+    addDocumentListener(object : DocumentListener {
+        override fun insertUpdate(e: DocumentEvent?) { consumer(e) }
+
+        override fun removeUpdate(e: DocumentEvent?) { consumer(e) }
+
+        override fun changedUpdate(e: DocumentEvent?) { consumer(e) }
+    })
 }
 
 // JSON object mapper

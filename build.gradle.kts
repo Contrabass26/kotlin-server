@@ -15,6 +15,7 @@ dependencies {
 
     // Kotlin coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0-RC")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.9.0-RC")
 
     // GUI appearance
     implementation("com.formdev:flatlaf:3.2.1")
