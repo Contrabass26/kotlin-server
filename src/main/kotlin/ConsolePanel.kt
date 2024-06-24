@@ -1,3 +1,5 @@
+import kotlinx.coroutines.*
+import kotlinx.coroutines.swing.Swing
 import java.awt.Color
 import java.awt.GridBagConstraints
 import java.awt.GridBagLayout
@@ -8,6 +10,7 @@ import java.io.BufferedWriter
 import javax.swing.*
 import kotlin.concurrent.thread
 
+@OptIn(DelicateCoroutinesApi::class)
 class ConsolePanel : JPanel() {
 
     private var process: Process? = null
@@ -22,7 +25,11 @@ class ConsolePanel : JPanel() {
         // Start button
         startBtn = JButton("Start")
         startBtn.addActionListener {
-            if (process == null) run() else sendToProcess("stop")
+            if (process == null) {
+                GlobalScope.launch(Dispatchers.Swing) {
+                    run()
+                }
+            } else sendToProcess("stop")
         }
         startBtn.background = Color.GREEN
         add(startBtn, getConstraints(2, 1, insets = getInsets(right = 5, top = 5, bottom = 5)))
@@ -55,7 +62,7 @@ class ConsolePanel : JPanel() {
         writer?.flush()
     }
 
-    private fun run() {
+    private suspend fun run() = withContext(Dispatchers.IO) {
         outputBox.text = ""
         process = ProcessBuilder("java", "-jar", "server.jar", "nogui").directory(server!!.location).start()
         startBtn.background = Color.RED
