@@ -4,19 +4,16 @@ import org.apache.commons.io.input.CountingInputStream
 import org.apache.commons.io.output.CountingOutputStream
 import org.apache.commons.lang3.SystemUtils
 import org.jsoup.Jsoup
-import java.awt.Color
 import java.awt.Component
 import java.awt.GridBagConstraints
 import java.awt.Insets
 import java.io.BufferedWriter
 import java.io.File
 import java.io.FileOutputStream
-import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URI
 import java.net.URL
 import javax.swing.JFrame
-import javax.swing.SwingUtilities
 import javax.swing.event.DocumentEvent
 import javax.swing.event.DocumentListener
 import javax.swing.text.Document
@@ -181,6 +178,34 @@ class ConsoleWrapper private constructor(location: File, vararg command: String)
         writer.write(s)
         writer.flush()
     }
+}
+
+fun convertVersion(version: String): IntArray {
+    val split = version.split("\\.".toRegex())
+    return split
+        .asSequence()
+        .map { it.toInt() }
+        .plus(generateSequence { 0 })
+        .take(3)
+        .toList()
+        .toIntArray()
+}
+
+val MC_VERSION_COMPARATOR = Comparator<String> { v1, v2 ->
+    val nums1 = convertVersion(v1)
+    val nums2 = convertVersion(v2)
+    for (i in 0..2) {
+        if (nums1[i] != nums2[i]) {
+            return@Comparator nums1[i].compareTo(nums2[i])
+        }
+    }
+    0
+    // Alt
+    nums1
+        .asSequence()
+        .zip(nums2.asSequence())
+        .map { (i1, i2) -> i1.compareTo(i2) }
+        .find { it != 0 } ?: 0
 }
 
 // Download file

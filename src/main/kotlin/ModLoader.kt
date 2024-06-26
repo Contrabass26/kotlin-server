@@ -2,10 +2,9 @@ import com.fasterxml.jackson.databind.node.ArrayNode
 import kotlinx.coroutines.*
 import org.apache.commons.lang3.StringUtils
 import org.apache.commons.lang3.SystemUtils
-import org.w3c.dom.Document
-import org.w3c.dom.Element
 import org.w3c.dom.Node
 import org.w3c.dom.NodeList
+import org.w3c.dom.Text
 import java.io.BufferedWriter
 import java.io.File
 import java.io.FileWriter
@@ -111,19 +110,7 @@ enum class ModLoader {
             }
         }
 
-        override fun getStartCommand(server: Server): String {
-            val os = if (SystemUtils.IS_OS_WINDOWS) "win" else "unix"
-            return server.location.listFiles()!!
-                .asSequence()
-                .map { it.name }
-                .filter { it.contains(server.mcVersion) }
-                .find { it.matches("minecraft_server.*\\.jar".toRegex()) }
-                ?.let { "${server.javaVersion} -Xmx${server.mbMemory}M -jar $it nogui" }
-                ?: server.relativeFile("/libraries/net/minecraftforge/forge").listFiles()!!
-                    .map { it.name }
-                    .find { it.contains(server.mcVersion) }!!
-                    .let { "${server.javaVersion} -Xmx${server.mbMemory}M @libraries/net/minecraftforge/forge/$it/${os}_args.txt nogui %*" }
-        }
+        override fun getStartCommand(server: Server): String = getForgeStartCommand("minecraftforge", "forge", server)
 
         override suspend fun supportsVersion(mcVersion: String): Boolean = mcVersions.await().contains(mcVersion)
 
@@ -152,24 +139,53 @@ enum class ModLoader {
     NEOFORGE {
         private lateinit var mcVersions: Deferred<List<String>>
         private lateinit var neoVersions: Deferred<List<String>>
+        override val cfModLoaderType = 6
 
-        private fun NodeList.asSequence(): Sequence<Node> {
-            return generateSequence(0) {
+        private fun NodeList.asSequence(): Sequence<Node> = (0..<length)
+            .asSequence()
+            .map { item(it) }
 
-            }
+        private fun normaliseVersion(version: String): String {
+            val mcVersion = "1.${StringUtils.substringBeforeLast(version, ".")}"
+            if (mcVersion.endsWith(".0")) return mcVersion.substring(0, mcVersion.length - 2)
+            return mcVersion
         }
 
         override suspend fun init() {
-            val builderFactory = DocumentBuilderFactory.newInstance()
-            builderFactory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true)
-            val builder = builderFactory.newDocumentBuilder()
-            val document = withContext(Dispatchers.IO) {
-                builder.parse("https://maven.neoforged.net/releases/net/neoforged/neoforge/maven-metadata.xml")
-            }.documentElement
-            document.normalize()
-            document.getElementsByTagName("version").forEach {
-
+            coroutineScope {
+                neoVersions = async {
+                    val builderFactory = DocumentBuilderFactory.newInstance()
+                    builderFactory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true)
+                    val builder = builderFactory.newDocumentBuilder()
+                    val document = withContext(Dispatchers.IO) {
+                        builder.parse("https://maven.neoforged.net/releases/net/neoforged/neoforge/maven-metadata.xml")
+                    }.documentElement
+                    document.normalize()
+                    document.getElementsByTagName("version")
+                        .asSequence()
+                        .map { (it.firstChild as Text).wholeText }
+                        .toList()
+                }
+                mcVersions = async {
+                    neoVersions.await()
+                        .asSequence()
+                        .map { normaliseVersion(it) }
+                        .distinct()
+                        .toList()
+                }
             }
+        }
+
+        override fun getStartCommand(server: Server): String = getForgeStartCommand("neoforged", "neoforge", server)
+
+        override suspend fun supportsVersion(mcVersion: String): Boolean = mcVersions.await().contains(mcVersion)
+
+        override suspend fun downloadFiles(server: Server) {
+            neoVersions.await()
+                .asSequence()
+                .let { it
+                    .zip(it.map {v -> normaliseVersion(v)}) }
+                .find { (_, mc) ->  }
         }
     },
     PUFFERFISH;
@@ -178,6 +194,20 @@ enum class ModLoader {
 
     companion object {
         suspend fun init() = entries.forEach { it.init() }
+
+        protected fun getForgeStartCommand(organisation: String, name: String, server: Server): String {
+            val os = if (SystemUtils.IS_OS_WINDOWS) "win" else "unix"
+            return server.location.listFiles()!!
+                .asSequence()
+                .map { it.name }
+                .filter { it.contains(server.mcVersion) }
+                .find { it.matches("minecraft_server.*\\.jar".toRegex()) }
+                ?.let { "${server.javaVersion} -Xmx${server.mbMemory}M -jar $it nogui" }
+                ?: server.relativeFile("/libraries/net/$organisation/$name").listFiles()!!
+                    .map { it.name }
+                    .find { it.contains(server.mcVersion) }!!
+                    .let { "${server.javaVersion} -Xmx${server.mbMemory}M @libraries/net/$organisation/$name/$it/${os}_args.txt nogui %*" }
+        }
     }
 
     open suspend fun downloadFiles(server: Server) = writeEula(server.location)
