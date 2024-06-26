@@ -51,6 +51,10 @@ class Server(val name: String, val location: File, val mcVersion: String, val mo
         data.get("lastOpened").intValue()
     )
 
+    fun getStartCommand(): String {
+        return modLoader.getStartCommand(this)
+    }
+
     fun delete() {
         // Remove from start screen
         if (startScreenComponents != null) {

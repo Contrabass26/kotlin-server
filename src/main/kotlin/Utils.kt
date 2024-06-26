@@ -4,15 +4,19 @@ import org.apache.commons.io.input.CountingInputStream
 import org.apache.commons.io.output.CountingOutputStream
 import org.apache.commons.lang3.SystemUtils
 import org.jsoup.Jsoup
+import java.awt.Color
 import java.awt.Component
 import java.awt.GridBagConstraints
 import java.awt.Insets
+import java.io.BufferedWriter
 import java.io.File
 import java.io.FileOutputStream
+import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URI
 import java.net.URL
 import javax.swing.JFrame
+import javax.swing.SwingUtilities
 import javax.swing.event.DocumentEvent
 import javax.swing.event.DocumentListener
 import javax.swing.text.Document
@@ -141,8 +145,42 @@ fun String.looksLikeMcVersion(): Boolean {
     return matches("[0-9]+\\.[0-9]+(?:\\.[0-9]+)?".toRegex())
 }
 
-fun consoleWrapper(vararg command: String) {
+class ConsoleWrapper private constructor(location: File, vararg command: String) {
 
+    private val process: Process = ProcessBuilder(*command).directory(location).start()
+    private val writer: BufferedWriter = process.outputWriter();
+
+    private fun stop() {
+        process.destroyForcibly()
+        process.inputStream.close()
+        process.outputStream.close()
+        process.errorStream.close()
+        writer.close()
+    }
+
+    companion object {
+        suspend fun create(location: File, vararg command: String, outputConsumer: (String) -> Unit) = withContext(Dispatchers.IO) {
+            val consoleWrapper = ConsoleWrapper(location, *command)
+            val reader = consoleWrapper.process.inputReader()
+            launch {
+                reader.use { reader ->
+                    reader!!.lines().forEach { outputConsumer(it) }
+                }
+                reader.close()
+                consoleWrapper.stop()
+            }
+            return@withContext consoleWrapper
+        }
+
+        suspend fun create(location: File, command: String, outputConsumer: (String) -> Unit) = withContext(Dispatchers.IO) {
+            return@withContext create(location, *command.split(' ').toTypedArray()) { outputConsumer(it) }
+        }
+    }
+
+    fun send(s: String) {
+        writer.write(s)
+        writer.flush()
+    }
 }
 
 // Download file
