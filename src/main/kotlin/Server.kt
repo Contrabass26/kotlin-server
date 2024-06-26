@@ -36,7 +36,7 @@ fun loadServers() {
     }
 }
 
-class Server(val name: String, val location: File, val lastOpened: Int) : Comparable<Server> {
+class Server(val name: String, val location: File, val mcVersion: String, val modLoader: ModLoader, val mbMemory: Int, val javaVersion: String, val lastOpened: Int) : Comparable<Server> {
 
     data class StartScreenComponents(val label: JLabel, val openBtn: JButton)
 
@@ -45,6 +45,10 @@ class Server(val name: String, val location: File, val lastOpened: Int) : Compar
     constructor(data: JsonNode) : this(
         data.get("name").textValue(),
         File(data.get("location").textValue()),
+        data.get("mcVersion").textValue(),
+        ModLoader.valueOf(data.get("modLoader").textValue()),
+        data.get("mbMemory").intValue(),
+        data.get("javaVersion").textValue(),
         data.get("lastOpened").intValue()
     )
 

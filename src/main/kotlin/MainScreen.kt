@@ -1,5 +1,7 @@
 import java.awt.GridBagConstraints
 import java.awt.GridBagLayout
+import java.awt.event.WindowAdapter
+import java.awt.event.WindowEvent
 import javax.swing.JFrame
 import javax.swing.JTabbedPane
 
@@ -12,7 +14,12 @@ class MainScreen : JFrame("Minecraft wrapper") {
 
     init {
         extendedState = MAXIMIZED_BOTH
-        defaultCloseOperation = EXIT_ON_CLOSE
+        defaultCloseOperation = DO_NOTHING_ON_CLOSE
+        addWindowListener(object : WindowAdapter() {
+            override fun windowClosing(e: WindowEvent?) {
+                statusUpdateJob?.cancel()
+            }
+        })
         layout = GridBagLayout()
         // File explorer
         add(fileExplorer, getConstraints(1, 1, weightx = 0.2, fill = GridBagConstraints.BOTH))

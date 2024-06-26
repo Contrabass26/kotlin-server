@@ -1,5 +1,6 @@
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import com.fasterxml.jackson.databind.JsonNode
+import kotlinx.coroutines.*
+import org.apache.commons.io.input.CountingInputStream
 import org.apache.commons.io.output.CountingOutputStream
 import org.apache.commons.lang3.SystemUtils
 import java.awt.Component
@@ -8,8 +9,8 @@ import java.awt.Insets
 import java.io.File
 import java.io.FileOutputStream
 import java.net.HttpURLConnection
+import java.net.URI
 import java.net.URL
-import java.net.URLConnection
 import javax.swing.JFrame
 import javax.swing.event.DocumentEvent
 import javax.swing.event.DocumentListener
@@ -101,8 +102,21 @@ fun Document.addDocumentListener(consumer: (DocumentEvent?) -> Unit) {
     })
 }
 
+fun getUrl(path: String): URL {
+    return URI.create(path).toURL()
+}
+
+// Chained get() calls on JsonNode
+fun JsonNode.get(vararg path: String): JsonNode {
+    var current = this
+    path.forEach {
+        current = current.get(it)
+    }
+    return current
+}
+
 // Download file
-suspend fun downloadFile(url: URL, destination: File, after: () -> Unit = {}) = withContext(Dispatchers.IO) {
+suspend fun downloadFile(url: URL, destination: File) = withContext(Dispatchers.IO) {
     val status = "Downloading $url"
     val connection: HttpURLConnection = url.openConnection() as HttpURLConnection
     connection.requestMethod = "GET"
@@ -114,5 +128,22 @@ suspend fun downloadFile(url: URL, destination: File, after: () -> Unit = {}) = 
         job.complete()
     }
     inputStream.close()
-    after()
+}
+
+suspend fun getJson(url: URL): JsonNode = withContext(Dispatchers.IO) {
+    val result: Deferred<JsonNode?> = async {
+        val status = "Downloading $url"
+        val connection: HttpURLConnection = url.openConnection() as HttpURLConnection
+        connection.requestMethod = "GET"
+        val length = connection.contentLength
+        val stream = connection.inputStream
+        var node: JsonNode? = null
+        CountingInputStream(stream).use {
+            val job = STATUS_PANEL!!.TrackedJob({ it.count / length }, { status })
+            node = JSON_MAPPER.readTree(it)
+            job.complete()
+        }
+        node
+    }
+    result.await()!!
 }
