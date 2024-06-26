@@ -36,6 +36,9 @@ dependencies {
 
     // Apache commons IO
     implementation("commons-io:commons-io:2.15.1")
+
+    // Jsoup - HTML parsing
+    implementation("org.jsoup:jsoup:1.16.1")
 }
 
 tasks.test {

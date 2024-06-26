@@ -1,6 +1,5 @@
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.ArrayNode
-import kotlinx.coroutines.delay
 import java.io.File
 import java.io.IOException
 import javax.swing.DefaultListModel
@@ -58,6 +57,10 @@ class Server(val name: String, val location: File, val mcVersion: String, val mo
             START_SCREEN!!.remove(startScreenComponents!!.label)
             START_SCREEN!!.remove(startScreenComponents!!.openBtn)
         }
+    }
+
+    fun relativeFile(path: String): File {
+        return File("${location.absolutePath}/$path")
     }
 
     override fun compareTo(other: Server): Int {

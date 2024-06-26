@@ -3,6 +3,7 @@ import kotlinx.coroutines.*
 import org.apache.commons.io.input.CountingInputStream
 import org.apache.commons.io.output.CountingOutputStream
 import org.apache.commons.lang3.SystemUtils
+import org.jsoup.Jsoup
 import java.awt.Component
 import java.awt.GridBagConstraints
 import java.awt.Insets
@@ -136,6 +137,14 @@ fun JsonNode.get(vararg path: String): JsonNode {
     return current
 }
 
+fun String.looksLikeMcVersion(): Boolean {
+    return matches("[0-9]+\\.[0-9]+(?:\\.[0-9]+)?".toRegex())
+}
+
+fun consoleWrapper(vararg command: String) {
+
+}
+
 // Download file
 suspend fun downloadFile(url: URL, destination: File) = withContext(Dispatchers.IO) {
     val status = "Downloading $url"
@@ -167,4 +176,11 @@ suspend fun getJson(url: URL): JsonNode = withContext(Dispatchers.IO) {
         node
     }
     result.await()!!
+}
+
+suspend fun getJsoup(url: String): org.jsoup.nodes.Document = withContext(Dispatchers.IO) {
+    val result: Deferred<org.jsoup.nodes.Document> = async {
+        Jsoup.connect(url).userAgent("Mozilla").get()
+    }
+    result.await()
 }

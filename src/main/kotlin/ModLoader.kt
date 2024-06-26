@@ -1,9 +1,7 @@
 import com.fasterxml.jackson.databind.node.ArrayNode
-import kotlinx.coroutines.Deferred
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.*
 import org.apache.commons.lang3.StringUtils
+import org.apache.commons.lang3.SystemUtils
 import java.io.BufferedWriter
 import java.io.File
 import java.io.FileWriter
@@ -17,12 +15,7 @@ private suspend fun writeEula(serverRoot: File) = withContext(Dispatchers.IO) {
 enum class ModLoader {
 
     VANILLA {
-        private val mcVersions: List<String> by ManualLazy {
-            getVersionsJson().asSequence()
-                .filter { it.get("type").textValue() == "release" }
-                .map { it.get("id").textValue() }
-                .toList()
-        }
+        private var mcVersions: Deferred<List<String>>? = null
 
         override suspend fun downloadFiles(server: Server) {
             super.downloadFiles(server)
@@ -44,36 +37,102 @@ enum class ModLoader {
         override fun getStartCommand(server: Server): String =
             "${server.javaVersion} -Xmx${server.mbMemory}M -jar server.jar nogui"
 
-        override fun supportsVersion(mcVersion: String): Boolean = mcVersions.contains(mcVersion)
+        override suspend fun supportsVersion(mcVersion: String): Boolean = mcVersions!!.await().contains(mcVersion)
 
         override suspend fun init() {
-            mcVersions.
+            coroutineScope {
+                mcVersions = async {
+                    getVersionsJson().asSequence()
+                        .filter { it.get("type").textValue() == "release" }
+                        .map { it.get("id").textValue() }
+                        .toList()
+                }
+            }
         }
     },
     FABRIC {
-        private val mcVersions: MutableList<String> = mutableListOf()
-
+        private var mcVersions: Deferred<List<String>>? = null
+        private var loaderVersion: String? = null
+        private var installerVersion: String? = null
         override val cfModLoaderType = 4
 
         override suspend fun init() {
-            val versions = getJson(getUrl("https://meta.fabricmc.net/v2/versions/game"))
-            versions.forEach {
-                if (it.get("stable").booleanValue()) {
-                    mcVersions.add(it.get("version").textValue())
+            coroutineScope {
+                // Supported versions
+                mcVersions = async {
+                    getJson(getUrl("https://meta.fabricmc.net/v2/versions/game"))
+                        .asSequence()
+                        .filter { it.get("stable").booleanValue() }
+                        .map { it.get("version").textValue() }
+                        .toList()
                 }
+                // Loader
+                loaderVersion = getJson(getUrl("https://meta.fabricmc.net/v2/versions/loader"))
+                    .find { it.get("stable").booleanValue() }!!
+                    .textValue()
+                // Installer
+                installerVersion = getJson(getUrl("https://meta.fabricmc.net/v2/versions/installer"))
+                    .find { it.get("stable").booleanValue() }!!
+                    .textValue()
             }
         }
 
         override fun getStartCommand(server: Server): String =
             "${server.javaVersion} -Xmx${server.mbMemory}M -jar fabric-server-launch.jar nogui"
 
-        override fun supportsVersion(mcVersion: String): Boolean = mcVersions.contains(mcVersion)
+        override suspend fun supportsVersion(mcVersion: String): Boolean = mcVersions!!.await().contains(mcVersion)
 
         override suspend fun downloadFiles(server: Server) {
-            TODO("Requires Fabric installer and loader versions")
+            downloadFile(getUrl("https://meta.fabricmc.net/v2/versions/loader/${server.mcVersion}/$loaderVersion/$installerVersion/server/jar"), server.relativeFile("/fabric-server-launch.jar"))
         }
     },
-    FORGE,
+    FORGE {
+        private var mcVersions: Deferred<List<String>>? = null
+        override val cfModLoaderType = 1
+
+
+        override suspend fun init() {
+            coroutineScope {
+                mcVersions = async {
+                    getJsoup("https://files.minecraftforge.net/net/minecraftforge/forge").select("a")
+                        .asSequence()
+                        .map { it.text() }
+                        .filter { it.looksLikeMcVersion() }
+                        .toList()
+                }
+            }
+        }
+
+        override fun getStartCommand(server: Server): String {
+            val os = if (SystemUtils.IS_OS_WINDOWS) "win" else "unix"
+            return server.location.listFiles()!!
+                .asSequence()
+                .map { it.name }
+                .filter { it.contains(server.mcVersion) }
+                .find { it.matches("minecraft_server.*\\.jar".toRegex()) }
+                ?.let { "${server.javaVersion} -Xmx${server.mbMemory}M -jar $it nogui" }
+                ?: server.relativeFile("/libraries/net/minecraftforge/forge").listFiles()!!
+                    .map { it.name }
+                    .find { it.contains(server.mcVersion) }!!
+                    .let { "${server.javaVersion} -Xmx${server.mbMemory}M @libraries/net/minecraftforge/forge/$it/${os}_args.txt nogui %*" }
+        }
+
+        override suspend fun supportsVersion(mcVersion: String): Boolean = mcVersions!!.await().contains(mcVersion)
+
+        override suspend fun downloadFiles(server: Server) {
+            val trackedUrl = getJsoup("https://files.minecraftforge.net/net/minecraftforge/forge/index_${server.mcVersion}.html")
+                .select("div.link.link-boosted")
+                .first()!!
+                .child(0)
+                .attr("href")
+            val url = Regex("url=(https://maven\\.minecraftforge\\.net/.*)")
+                .matchEntire(trackedUrl)!!
+                .groups[1]!!
+                .value
+            downloadFile(getUrl(url), server.relativeFile("/installer.jar"))
+
+        }
+    },
     NEOFORGE,
     PUFFERFISH;
 
@@ -87,7 +146,7 @@ enum class ModLoader {
 
     open fun getStartCommand(server: Server): String = TODO("Not implemented yet")
 
-    open fun supportsVersion(mcVersion: String): Boolean = false
+    open suspend fun supportsVersion(mcVersion: String): Boolean = false
 
     // This will be started in a coroutine before anything else is loaded
     protected open suspend fun init() = Unit
