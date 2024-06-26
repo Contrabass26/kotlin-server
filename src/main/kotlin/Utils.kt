@@ -15,8 +15,29 @@ import javax.swing.JFrame
 import javax.swing.event.DocumentEvent
 import javax.swing.event.DocumentListener
 import javax.swing.text.Document
+import kotlin.reflect.KProperty
 
 val USERNAME: String = System.getProperty("user.name")
+
+class ManualLazy<T>(val getter: suspend () -> T) {
+
+    private var value: T? = null
+
+    operator fun getValue(thisRef: Any?, property: KProperty<*>): T {
+        if (value == null) {
+            runBlocking { loadManual() }
+        }
+        return value!!
+    }
+
+    suspend fun loadManual() {
+        val newValue = getter()
+        synchronized(this) {
+            println("Set manual lazy value")
+            value = newValue
+        }
+    }
+}
 
 // Get app data directory
 val APP_DATA_LOCATION by lazy {

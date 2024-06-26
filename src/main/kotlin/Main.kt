@@ -27,6 +27,7 @@ class Main {
     companion object {
         @JvmStatic
         fun main(args: Array<String>): Unit = runBlocking {
+            launch { ModLoader.init() }
             // Initialise GUI appearance
             val themeDetector = OsThemeDetector.getDetector()
             if (themeDetector.isDark) {
