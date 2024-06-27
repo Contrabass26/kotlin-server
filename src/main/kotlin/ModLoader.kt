@@ -5,11 +5,17 @@ import org.apache.commons.lang3.SystemUtils
 import org.w3c.dom.Node
 import org.w3c.dom.NodeList
 import org.w3c.dom.Text
+import java.awt.Desktop
+import java.awt.event.MouseAdapter
+import java.awt.event.MouseEvent
 import java.io.BufferedWriter
 import java.io.File
 import java.io.FileWriter
+import java.net.URI
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
+import javax.swing.JOptionPane
+import javax.swing.JTextPane
 import javax.xml.XMLConstants
 import javax.xml.parsers.DocumentBuilderFactory
 
@@ -42,7 +48,7 @@ enum class ModLoader {
         }
 
         override fun getStartCommand(server: Server): String =
-            "${server.javaVersion} -Xmx${server.mbMemory}M -jar server.jar nogui"
+            server.run { "$javaVersion -Xmx${mbMemory}M -jar server.jar nogui" }
 
         override suspend fun supportsVersion(mcVersion: String): Boolean = mcVersions.await().contains(mcVersion)
 
@@ -85,11 +91,12 @@ enum class ModLoader {
         }
 
         override fun getStartCommand(server: Server): String =
-            "${server.javaVersion} -Xmx${server.mbMemory}M -jar fabric-server-launch.jar nogui"
+            server.run { "$javaVersion -Xmx${mbMemory}M -jar fabric-server-launch.jar nogui" }
 
         override suspend fun supportsVersion(mcVersion: String): Boolean = mcVersions.await().contains(mcVersion)
 
         override suspend fun downloadFiles(server: Server) {
+            super.downloadFiles(server)
             downloadFile(getUrl("https://meta.fabricmc.net/v2/versions/loader/${server.mcVersion}/$loaderVersion/$installerVersion/server/jar"), server.relativeFile("/fabric-server-launch.jar"))
         }
     },
@@ -110,11 +117,13 @@ enum class ModLoader {
             }
         }
 
-        override fun getStartCommand(server: Server): String = getForgeStartCommand("minecraftforge", "forge", server)
+        override fun getStartCommand(server: Server): String =
+            getForgeStartCommand("minecraftforge", "forge", server)
 
         override suspend fun supportsVersion(mcVersion: String): Boolean = mcVersions.await().contains(mcVersion)
 
         override suspend fun downloadFiles(server: Server) {
+            super.downloadFiles(server)
             val trackedUrl = getJsoup("https://files.minecraftforge.net/net/minecraftforge/forge/index_${server.mcVersion}.html")
                 .select("div.link.link-boosted")
                 .first()!!
@@ -168,11 +177,13 @@ enum class ModLoader {
             }
         }
 
-        override fun getStartCommand(server: Server): String = getForgeStartCommand("neoforged", "neoforge", server)
+        override fun getStartCommand(server: Server): String =
+            getForgeStartCommand("neoforged", "neoforge", server)
 
         override suspend fun supportsVersion(mcVersion: String): Boolean = mcVersions.await().contains(mcVersion)
 
         override suspend fun downloadFiles(server: Server) {
+            super.downloadFiles(server)
             val neoVersion = neoVersions.await()
                 .find { MC_VERSION_COMPARATOR.compare(normaliseVersion(it), server.mcVersion) == 0 }!!
             val url = getUrl("https://maven.neoforged.net/releases/net/neoforged/neoforge/%s/neoforge-$neoVersion-installer.jar")
@@ -192,6 +203,65 @@ enum class ModLoader {
                 }
             }
         }
+
+        override suspend fun supportsVersion(mcVersion: String): Boolean = ghBranches.await().contains("ver/${getMajorVersion(mcVersion)}")
+
+        override fun getStartCommand(server: Server): String = 
+            server.run { "$javaVersion -Xmx${mbMemory}M -jar pufferfish.jar nogui" }
+
+        override suspend fun downloadFiles(server: Server) {
+            super.downloadFiles(server)
+            // Get initial build
+            val changelogUrl = "https://ci.pufferfish.host/job/Pufferfish-${server.majorMcVersion}/changes"
+            val initialBuild = getInitialBuild(server, changelogUrl)
+            // Confirm initial choice with the user
+            val message = if (initialBuild == null)
+                "No relevant build was detected on <a href=$changelogUrl>changelog</a>"
+            else
+                "Detected build %s in <a href=$changelogUrl>changelog</a>"
+            val messageLabel = JTextPane()
+            messageLabel.contentType = "text/html"
+            messageLabel.text = "<html>$message - enter the build to use:</html>"
+            messageLabel.isEditable = false
+            messageLabel.addMouseListener(object : MouseAdapter() {
+                override fun mouseReleased(e: MouseEvent) {
+                    Desktop.getDesktop().browse(URI(changelogUrl))
+                }
+            })
+            val chosenBuild = JOptionPane.showInputDialog(
+                MAIN_SCREEN,
+                messageLabel,
+                "Enter build to use",
+                JOptionPane.QUESTION_MESSAGE,
+                null,
+                null,
+                initialBuild ?: ""
+            ) as String
+            // Download file with chosen build
+            val document1 = getJsoup("https://ci.pufferfish.host/job/Pufferfish-${server.majorMcVersion}/$chosenBuild")
+            val relativeJarPath = document1.select(".fileList")[0]
+                .child(0)
+                .child(0)
+                .child(1)
+                .child(0)
+                .attr("href")
+            val url = getUrl("https://ci.pufferfish.host/job/Pufferfish-${server.majorMcVersion}/$chosenBuild/$relativeJarPath")
+            downloadFile(url, server.relativeFile("/pufferfish.jar"))
+        }
+
+        private suspend fun getInitialBuild(server: Server, url: String): String? {
+            val elements = getJsoup(url)
+                .select("#main-panel")
+                .first()
+                ?.children()
+            if (elements == null) return null
+            return (0..<elements.size)
+                .asSequence()
+                .filter { elements[it].`is`("h2") }
+                .filter { elements[it + 1].`is`("ol") }
+                .find { elements[it + 1].text().contains(server.mcVersion) }
+                ?.let { StringUtils.substringBetween(elements[it].text(), "#", " ") }
+        }
     };
 
     open val cfModLoaderType = -1
@@ -201,16 +271,18 @@ enum class ModLoader {
 
         protected fun getForgeStartCommand(organisation: String, name: String, server: Server): String {
             val os = if (SystemUtils.IS_OS_WINDOWS) "win" else "unix"
-            return server.location.listFiles()!!
-                .asSequence()
-                .map { it.name }
-                .filter { it.contains(server.mcVersion) }
-                .find { it.matches("minecraft_server.*\\.jar".toRegex()) }
-                ?.let { "${server.javaVersion} -Xmx${server.mbMemory}M -jar $it nogui" }
-                ?: server.relativeFile("/libraries/net/$organisation/$name").listFiles()!!
+            return server.run {
+                location.listFiles()!!
+                    .asSequence()
                     .map { it.name }
-                    .find { it.contains(server.mcVersion) }!!
-                    .let { "${server.javaVersion} -Xmx${server.mbMemory}M @libraries/net/$organisation/$name/$it/${os}_args.txt nogui %*" }
+                    .filter { it.contains(mcVersion) }
+                    .find { it.matches("minecraft_server.*\\.jar".toRegex()) }
+                    ?.let { "$javaVersion -Xmx${mbMemory}M -jar $it nogui" }
+                    ?: relativeFile("/libraries/net/$organisation/$name").listFiles()!!
+                        .map { it.name }
+                        .find { it.contains(mcVersion) }!!
+                        .let { "$javaVersion -Xmx${mbMemory}M @libraries/net/$organisation/$name/$it/${os}_args.txt nogui %*" }
+            }
         }
 
         protected suspend fun runForgeInstaller(server: Server) {

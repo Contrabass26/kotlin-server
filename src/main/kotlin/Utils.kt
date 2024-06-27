@@ -2,6 +2,7 @@ import com.fasterxml.jackson.databind.JsonNode
 import kotlinx.coroutines.*
 import org.apache.commons.io.input.CountingInputStream
 import org.apache.commons.io.output.CountingOutputStream
+import org.apache.commons.lang3.StringUtils
 import org.apache.commons.lang3.SystemUtils
 import org.jsoup.Jsoup
 import java.awt.Component
@@ -180,22 +181,23 @@ class ConsoleWrapper private constructor(location: File, vararg command: String)
     }
 }
 
-fun convertVersion(version: String): IntArray {
+fun convertVersion(version: String): Sequence<Int> {
     val split = version.split("\\.".toRegex())
     return split
         .asSequence()
         .map { it.toInt() }
         .plus(generateSequence { 0 })
         .take(3)
-        .toList()
-        .toIntArray()
+}
+
+fun getMajorVersion(mcVersion: String): String {
+    return StringUtils.join(convertVersion(mcVersion).take(2), '.')
 }
 
 val MC_VERSION_COMPARATOR = Comparator<String> { v1, v2 ->
     val nums1 = convertVersion(v1)
     val nums2 = convertVersion(v2)
-    nums1.asSequence()
-        .zip(nums2.asSequence())
+    nums1.zip(nums2)
         .map { (i1, i2) -> i1.compareTo(i2) }
         .find { it != 0 } ?: 0
 }

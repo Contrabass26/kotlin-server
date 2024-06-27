@@ -40,6 +40,7 @@ class Server(val name: String, val location: File, val mcVersion: String, val mo
     data class StartScreenComponents(val label: JLabel, val openBtn: JButton)
 
     var startScreenComponents: StartScreenComponents? = null
+    val majorMcVersion by lazy { getMajorVersion(mcVersion) }
 
     constructor(data: JsonNode) : this(
         data.get("name").textValue(),
