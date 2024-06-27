@@ -2,6 +2,8 @@ import com.fasterxml.jackson.databind.node.ArrayNode
 import kotlinx.coroutines.*
 import org.apache.commons.lang3.StringUtils
 import org.apache.commons.lang3.SystemUtils
+import org.apache.logging.log4j.LogManager
+import org.apache.logging.log4j.Logger
 import org.w3c.dom.Node
 import org.w3c.dom.NodeList
 import org.w3c.dom.Text
@@ -60,13 +62,14 @@ enum class ModLoader {
                         .map { it.get("id").textValue() }
                         .toList()
                 }
+                logger.info("Loaded ${mcVersions.await().size} supported versions")
             }
         }
     },
     FABRIC {
         private lateinit var mcVersions: Deferred<List<String>>
-        private var loaderVersion: String? = null
-        private var installerVersion: String? = null
+        private lateinit var loaderVersion: Deferred<String>
+        private lateinit var installerVersion: Deferred<String>
         override val cfModLoaderType = 4
 
         override suspend fun init() {
@@ -80,13 +83,21 @@ enum class ModLoader {
                         .toList()
                 }
                 // Loader
-                loaderVersion = getJson(getUrl("https://meta.fabricmc.net/v2/versions/loader"))
-                    .find { it.get("stable").booleanValue() }!!
-                    .textValue()
+                loaderVersion = async {
+                    getJson(getUrl("https://meta.fabricmc.net/v2/versions/loader"))
+                        .find { it.get("stable").booleanValue() }!!
+                        .get("version").textValue()
+                }
                 // Installer
-                installerVersion = getJson(getUrl("https://meta.fabricmc.net/v2/versions/installer"))
-                    .find { it.get("stable").booleanValue() }!!
-                    .textValue()
+                installerVersion = async {
+                    getJson(getUrl("https://meta.fabricmc.net/v2/versions/installer"))
+                        .find { it.get("stable").booleanValue() }!!
+                        .get("version").textValue()
+                }
+                // Log messages
+                logger.info("Loaded ${mcVersions.await().size} supported versions")
+                logger.info("Loader version = ${loaderVersion.await()}")
+                logger.info("Installer version = ${installerVersion.await()}")
             }
         }
 
@@ -114,6 +125,7 @@ enum class ModLoader {
                         .filter { it.looksLikeMcVersion() }
                         .toList()
                 }
+                logger.info("Loaded ${mcVersions.await().size} supported versions")
             }
         }
 
@@ -174,6 +186,9 @@ enum class ModLoader {
                         .distinct()
                         .toList()
                 }
+                // Log messages
+                logger.info("Loaded ${neoVersions.await().size} NeoForge versions")
+                logger.info("Loaded ${mcVersions.await().size} supported Minecraft versions")
             }
         }
 
@@ -201,6 +216,7 @@ enum class ModLoader {
                         .map { it.get("name").textValue() }
                         .toSet()
                 }
+                logger.info("Loaded ${ghBranches.await().size} GitHub branches")
             }
         }
 
@@ -265,9 +281,14 @@ enum class ModLoader {
     };
 
     open val cfModLoaderType = -1
+    protected val logger: Logger = LogManager.getLogger(this.name)
 
     companion object {
-        suspend fun init() = entries.forEach { it.init() }
+        suspend fun init() = coroutineScope {
+            entries.forEach {
+                launch { it.init() }
+            }
+        }
 
         protected fun getForgeStartCommand(organisation: String, name: String, server: Server): String {
             val os = if (SystemUtils.IS_OS_WINDOWS) "win" else "unix"

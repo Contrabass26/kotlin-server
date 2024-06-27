@@ -17,7 +17,8 @@ class MainScreen : JFrame("Minecraft wrapper") {
         defaultCloseOperation = DO_NOTHING_ON_CLOSE
         addWindowListener(object : WindowAdapter() {
             override fun windowClosing(e: WindowEvent?) {
-                statusUpdateJob?.cancel()
+                START_SCREEN!!.isVisible = true
+                isVisible = false
             }
         })
         layout = GridBagLayout()

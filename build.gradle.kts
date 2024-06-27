@@ -39,6 +39,10 @@ dependencies {
 
     // Jsoup - HTML parsing
     implementation("org.jsoup:jsoup:1.16.1")
+
+    // Log4j
+    implementation("org.apache.logging.log4j:log4j-api:2.21.1")
+    implementation("org.apache.logging.log4j:log4j-core:2.21.1")
 }
 
 tasks.test {

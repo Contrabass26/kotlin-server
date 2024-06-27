@@ -226,9 +226,9 @@ suspend fun getJson(url: URL): JsonNode = withContext(Dispatchers.IO) {
         val stream = connection.inputStream
         var node: JsonNode? = null
         CountingInputStream(stream).use {
-            val job = STATUS_PANEL!!.TrackedJob({ it.count / length }, { status })
+            val job = STATUS_PANEL?.TrackedJob({ it.count / length }, { status })
             node = JSON_MAPPER.readTree(it)
-            job.complete()
+            job?.complete()
         }
         node
     }
