@@ -6,7 +6,7 @@ This project provides a GUI for locally hosted Minecraft servers, with QOL tools
 
 The project is targeted at two groups of people:
 - People who want to self-host Minecraft servers but don't know how to
-- People who have experience self-hosting but want to automate setup and configuration
+- People who have experience self-hosting but want to streamline setup and configuration
 
 In the future I would like to support remote configuration over a network, or perhaps a command line alternative. For now, all servers are hosted on the computer that is running the application.
 
