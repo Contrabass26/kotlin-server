@@ -194,15 +194,7 @@ fun convertVersion(version: String): IntArray {
 val MC_VERSION_COMPARATOR = Comparator<String> { v1, v2 ->
     val nums1 = convertVersion(v1)
     val nums2 = convertVersion(v2)
-    for (i in 0..2) {
-        if (nums1[i] != nums2[i]) {
-            return@Comparator nums1[i].compareTo(nums2[i])
-        }
-    }
-    0
-    // Alt
-    nums1
-        .asSequence()
+    nums1.asSequence()
         .zip(nums2.asSequence())
         .map { (i1, i2) -> i1.compareTo(i2) }
         .find { it != 0 } ?: 0

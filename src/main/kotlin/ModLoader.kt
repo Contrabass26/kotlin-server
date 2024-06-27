@@ -125,15 +125,7 @@ enum class ModLoader {
                 .groups[1]!!
                 .value
             downloadFile(getUrl(url), server.relativeFile("/installer.jar"))
-            // Run installer
-            val lineCount = AtomicInteger()
-            val lastOutput = AtomicReference("Running Forge installer")
-            val job = STATUS_PANEL!!.TrackedJob({ lineCount.get() / 22507 }, { lastOutput.get() })
-            ConsoleWrapper.create(server.location, "${server.javaVersion} -jar installer.jar -installServer") {
-                lineCount.incrementAndGet()
-                lastOutput.set(it)
-            }
-            job.complete()
+            runForgeInstaller(server)
         }
     },
     NEOFORGE {
@@ -181,14 +173,26 @@ enum class ModLoader {
         override suspend fun supportsVersion(mcVersion: String): Boolean = mcVersions.await().contains(mcVersion)
 
         override suspend fun downloadFiles(server: Server) {
-            neoVersions.await()
-                .asSequence()
-                .let { it
-                    .zip(it.map {v -> normaliseVersion(v)}) }
-                .find { (_, mc) ->  }
+            val neoVersion = neoVersions.await()
+                .find { MC_VERSION_COMPARATOR.compare(normaliseVersion(it), server.mcVersion) == 0 }!!
+            val url = getUrl("https://maven.neoforged.net/releases/net/neoforged/neoforge/%s/neoforge-$neoVersion-installer.jar")
+            downloadFile(url, server.relativeFile("/installer.jar"))
+            runForgeInstaller(server)
         }
     },
-    PUFFERFISH;
+    PUFFERFISH {
+        private lateinit var ghBranches: Deferred<Set<String>>
+
+        override suspend fun init() {
+            coroutineScope {
+                ghBranches = async {
+                    (getJson(getUrl("https://api.github.com/repos/pufferfish-gg/Pufferfish/branches")) as ArrayNode)
+                        .map { it.get("name").textValue() }
+                        .toSet()
+                }
+            }
+        }
+    };
 
     open val cfModLoaderType = -1
 
@@ -207,6 +211,18 @@ enum class ModLoader {
                     .map { it.name }
                     .find { it.contains(server.mcVersion) }!!
                     .let { "${server.javaVersion} -Xmx${server.mbMemory}M @libraries/net/$organisation/$name/$it/${os}_args.txt nogui %*" }
+        }
+
+        protected suspend fun runForgeInstaller(server: Server) {
+            // Run installer
+            val lineCount = AtomicInteger()
+            val lastOutput = AtomicReference("Running Forge installer")
+            val job = STATUS_PANEL!!.TrackedJob({ lineCount.get() / 22507 }, { lastOutput.get() })
+            ConsoleWrapper.create(server.location, "${server.javaVersion} -jar installer.jar -installServer") {
+                lineCount.incrementAndGet()
+                lastOutput.set(it)
+            }
+            job.complete()
         }
     }
 
