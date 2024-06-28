@@ -22,32 +22,21 @@ import kotlin.reflect.KProperty
 
 val USERNAME: String = System.getProperty("user.name")
 
-class ManualLazy<T>(val getter: suspend () -> T) {
-
-    private var value: T? = null
-
-    operator fun getValue(thisRef: Any?, property: KProperty<*>): T {
-        if (value == null) {
-            runBlocking { loadManual() }
-        }
-        return value!!
-    }
-
-    suspend fun loadManual() {
-        val newValue = getter()
-        synchronized(this) {
-            println("Set manual lazy value")
-            value = newValue
-        }
-    }
-}
-
 // Get app data directory
 val APP_DATA_LOCATION by lazy {
     String.format(when {
         SystemUtils.IS_OS_WINDOWS -> "C:/Users/%s/AppData/Roaming/"
         SystemUtils.IS_OS_MAC -> "/Users/%s/Library/Application Support/"
         SystemUtils.IS_OS_LINUX -> "/home/%s/."
+        else -> throw IllegalStateException("Operating system not supported: " + System.getProperty("os.name"))
+    }, USERNAME)
+}
+
+val USER_HOME by lazy {
+    String.format(when {
+        SystemUtils.IS_OS_WINDOWS -> "C:/Users/%s"
+        SystemUtils.IS_OS_MAC -> "/Users/%s"
+        SystemUtils.IS_OS_LINUX -> "/home/%s"
         else -> throw IllegalStateException("Operating system not supported: " + System.getProperty("os.name"))
     }, USERNAME)
 }
