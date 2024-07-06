@@ -30,11 +30,10 @@ private suspend fun writeEula(serverRoot: File) = withContext(Dispatchers.IO) {
 enum class ModLoader {
 
     VANILLA {
-        private lateinit var mcVersions: Deferred<List<String>>
-
         override suspend fun downloadFiles(server: Server) {
             super.downloadFiles(server)
-            val versions: ArrayNode = getVersionsJson()
+            val url = getUrl("https://piston-meta.mojang.com/mc/game/version_manifest_v2.json")
+            val versions: ArrayNode = getJson(url).get("versions") as ArrayNode
             versions.forEach {
                 if (server.mcVersion == it.get("id").textValue()) {
                     val version = getJson(getUrl(it.get("url").textValue()))
@@ -44,27 +43,10 @@ enum class ModLoader {
             }
         }
 
-        private suspend fun getVersionsJson(): ArrayNode {
-            val url = getUrl("https://piston-meta.mojang.com/mc/game/version_manifest_v2.json")
-            return getJson(url).get("versions") as ArrayNode
-        }
-
         override fun getStartCommand(server: Server): String =
             server.run { "$javaVersion -Xmx${mbMemory}M -jar server.jar nogui" }
 
         override suspend fun supportsVersion(mcVersion: String): Boolean = mcVersions.await().contains(mcVersion)
-
-        override suspend fun init() {
-            coroutineScope {
-                mcVersions = async {
-                    getVersionsJson().asSequence()
-                        .filter { it.get("type").textValue() == "release" }
-                        .map { it.get("id").textValue() }
-                        .toList()
-                }
-                logger.info("Loaded ${mcVersions.await().size} supported versions")
-            }
-        }
     },
     FABRIC {
         private lateinit var mcVersions: Deferred<List<String>>
@@ -284,10 +266,28 @@ enum class ModLoader {
     protected val logger: Logger = LogManager.getLogger(this.name)
 
     companion object {
+        lateinit var mcVersions: Deferred<List<String>>
+        private val logger = LogManager.getLogger("ModLoader")
+
         suspend fun init() = coroutineScope {
+            launch {
+                mcVersions = async {
+                    val url = getUrl("https://piston-meta.mojang.com/mc/game/version_manifest_v2.json")
+                    val versions: ArrayNode = getJson(url).get("versions") as ArrayNode
+                    versions.asSequence()
+                        .filter { it.get("type").textValue() == "release" }
+                        .map { it.get("id").textValue() }
+                        .toList()
+                }
+                logger.info("Loaded ${mcVersions.await().size} Minecraft versions")
+            }
             entries.forEach {
                 launch { it.init() }
             }
+        }
+
+        suspend fun getMcVersions(): List<String> {
+            return mcVersions.await()
         }
 
         protected fun getForgeStartCommand(organisation: String, name: String, server: Server): String {

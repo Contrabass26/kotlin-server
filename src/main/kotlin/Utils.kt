@@ -4,6 +4,7 @@ import org.apache.commons.io.input.CountingInputStream
 import org.apache.commons.io.output.CountingOutputStream
 import org.apache.commons.lang3.StringUtils
 import org.apache.commons.lang3.SystemUtils
+import org.apache.logging.log4j.LogManager
 import org.jsoup.Jsoup
 import java.awt.Component
 import java.awt.GridBagConstraints
@@ -11,15 +12,17 @@ import java.awt.Insets
 import java.io.BufferedWriter
 import java.io.File
 import java.io.FileOutputStream
+import java.lang.management.ManagementFactory
 import java.net.HttpURLConnection
 import java.net.URI
 import java.net.URL
+import javax.management.*
 import javax.swing.JFrame
 import javax.swing.event.DocumentEvent
 import javax.swing.event.DocumentListener
 import javax.swing.text.Document
-import kotlin.reflect.KProperty
 
+private val LOGGER = LogManager.getLogger()
 val USERNAME: String = System.getProperty("user.name")
 
 // Get app data directory
@@ -41,6 +44,19 @@ val USER_HOME by lazy {
     }, USERNAME)
 }
 
+val SYSTEM_MEMORY_BYTES: Long by lazy {
+    val mBeanServer = ManagementFactory.getPlatformMBeanServer()
+    try {
+        mBeanServer.getAttribute(
+            ObjectName("java.lang", "type", "OperatingSystem"),
+            "TotalPhysicalMemorySize"
+        ) as Long
+    } catch (e: Throwable) {
+        LOGGER.error("Failed to read system memory", e)
+    }
+    8589934592L
+}
+
 // Utility extension to set frame size based on screen resolution
 fun JFrame.setSize(widthProp: Double, heightProp: Double) {
     setSize(
@@ -51,8 +67,8 @@ fun JFrame.setSize(widthProp: Double, heightProp: Double) {
 
 // Utility to create GridBagConstraints
 fun getConstraints(
-    gridx: Int,
-    gridy: Int,
+    gridx: Int = 1,
+    gridy: Int = 1,
     gridwidth: Int = 1,
     gridheight: Int = 1,
     weightx: Double? = null,
