@@ -7,13 +7,15 @@ import java.awt.event.WindowEvent
 import java.io.File
 import java.util.Hashtable
 import javax.swing.*
+import javax.swing.JToggleButton.ToggleButtonModel
 import kotlin.math.roundToInt
 
 class CreateServerScreen : JFrame("Create server") {
 
     private val nameField: JTextField
     private val locationField: JTextField
-    private val modLoaderRadios: ButtonGroup
+    private val modLoaderRadios: List<JRadioButton>
+    private val mcVersionCombo: JComboBox<String>
     private val memorySlider: JSlider
 
     init {
@@ -51,13 +53,14 @@ class CreateServerScreen : JFrame("Create server") {
         }
         // Mod loader
         val modLoaderLbl = JLabel("Mod loader:")
-        modLoaderRadios = ButtonGroup()
-        ModLoader.entries
+        modLoaderRadios = ModLoader.entries
             .map { JRadioButton(it.toString(), it == ModLoader.VANILLA) }
-            .forEach { modLoaderRadios.add(it) }
+            .toList()
+        val modLoaderBtnGroup = ButtonGroup()
+        modLoaderRadios.forEach(modLoaderBtnGroup::add)
         createInnerPanel {
             it.add(modLoaderLbl, getConstraints(anchor = GridBagConstraints.WEST, insets = getInsets(right = 5)))
-            modLoaderRadios.elements.iterator().forEach { radio ->
+            modLoaderRadios.forEach { radio ->
                 it.add(radio, getConstraints(gridx = GridBagConstraints.RELATIVE, insets = getInsets(left = 5)))
             }
             it.add(JPanel(), getConstraints(gridx = GridBagConstraints.RELATIVE, weightx = 1.0))
@@ -65,7 +68,7 @@ class CreateServerScreen : JFrame("Create server") {
         // Minecraft version
         val mcVersionLbl = JLabel("Minecraft version:")
         val mcVersionComboModel = DefaultComboBoxModel<String>()
-        val mcVersionCombo = JComboBox(mcVersionComboModel)
+        mcVersionCombo = JComboBox(mcVersionComboModel)
         @OptIn(DelicateCoroutinesApi::class)
         GlobalScope.launch(Dispatchers.Swing) {
             modLoaderInitJob!!.join()
@@ -105,7 +108,20 @@ class CreateServerScreen : JFrame("Create server") {
         val createBtn = JButton("Create")
         createBtn.addActionListener {
             if (validateOptions()) {
-
+                // Add server
+                val server = Server(
+                    nameField.text,
+                    File(locationField.text),
+                    mcVersionCombo.selectedItem as String,
+                    ModLoader.valueOf(modLoaderRadios.getSelected().text.uppercase()),
+                    memorySlider.value,
+                    "java",
+                    System.currentTimeMillis()
+                )
+                SERVERS.insertSorted(server)
+                // Download files
+                @OptIn(DelicateCoroutinesApi::class)
+                GlobalScope.launch(Dispatchers.IO) { server.downloadFiles() }
             }
         }
         add(createBtn, getConstraints(gridy = GridBagConstraints.RELATIVE, weightx = 1.0, insets = getInsets(top = 5, left = 5, right = 5)))
@@ -113,8 +129,14 @@ class CreateServerScreen : JFrame("Create server") {
         add(JPanel(), getConstraints(gridy = GridBagConstraints.RELATIVE, fill = GridBagConstraints.BOTH))
     }
 
+    private fun List<JRadioButton>.getSelected(): JRadioButton = find { it.isSelected }!!
+
     private fun validateOptions(): Boolean {
         // Server name
+        if (nameField.text.isEmpty()) {
+            complain("No server name provided.")
+            return false
+        }
         if (SERVERS.elements().asSequence().any { it.name == nameField.text }) {
             complain("There is already a server called \"${nameField.text}\". Server names must be unique.")
             return false
@@ -131,12 +153,34 @@ class CreateServerScreen : JFrame("Create server") {
             return false
         }
         if (children.isNotEmpty()) {
-            if (!warn("Selected server location is not empty - files may be overwritten."))
-                return false
+            warn("Selected server location is not empty - files may be overwritten.")?.let { return false }
         }
         // Minecraft version and mod loader
-        val modLoader = ModLoader.valueOf((modLoaderRadios.selection as JRadioButton).text.uppercase())
+        val modLoader = ModLoader.valueOf(modLoaderRadios.getSelected().text.uppercase())
+        val mcVersion = mcVersionCombo.selectedItem as String?
+        if (mcVersion == null) {
+            complain("No Minecraft version selected.")
+            return false
+        }
+        runBlocking {
+            if (!modLoader.supportsVersion(mcVersion)) {
+                complain("$modLoader does not support $mcVersion.")
+                return@runBlocking Unit
+            }
+            null
+        }?.let { return false }
+        // Memory allocation
+        val memory = memorySlider.value
+        when {
+            (memory < 1024) ->
+                warn("You probably need more memory than that.")
 
+            (memory > SYSTEM_MEMORY_MB - 2048) ->
+                warn("Other programs probably need more memory than that.")
+
+            else -> null
+        }?.let { return false }
+        // Everything is fine
         return true
     }
 
@@ -149,28 +193,15 @@ class CreateServerScreen : JFrame("Create server") {
         )
     }
 
-    private fun warn(message: String): Boolean { // Returns whether the user chose to continue
-        return JOptionPane.showConfirmDialog(
+    private fun warn(message: String): Unit? { // Returns Unit if the user chose to stop
+        return if (JOptionPane.showConfirmDialog(
             this,
             message,
             "Suspicious options",
             JOptionPane.OK_CANCEL_OPTION,
             JOptionPane.WARNING_MESSAGE
-        ) == JOptionPane.OK_OPTION
+        ) == JOptionPane.OK_OPTION) null else Unit
     }
-
-//    private fun updateMemoryFeedback() {
-//        when {
-//            (memorySlider.value < 1024) ->
-//                memoryFeedbackLbl.setFeedback("You probably need more memory than that", Color.ORANGE)
-//
-//            (memorySlider.value > SYSTEM_MEMORY_MB - 2048) ->
-//                memoryFeedbackLbl.setFeedback("Other programs probably need more memory than that", Color.ORANGE)
-//
-//            else ->
-//                memoryFeedbackLbl.setFeedback("Valid memory allocation", Color.GREEN)
-//        }
-//    }
 
     fun showScreen() {
         isVisible = true

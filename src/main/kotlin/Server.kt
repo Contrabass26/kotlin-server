@@ -10,7 +10,7 @@ import javax.swing.SwingUtilities
 val SERVERS = DefaultListModel<Server>()
 
 // Utility to add items to DefaultListModel
-private fun DefaultListModel<Server>.insertSorted(item: Server) {
+fun DefaultListModel<Server>.insertSorted(item: Server) {
     SwingUtilities.invokeLater {
         var toInsert = size
         for (i in 0..<size) {
@@ -35,7 +35,7 @@ fun loadServers() {
     }
 }
 
-class Server(val name: String, val location: File, val mcVersion: String, val modLoader: ModLoader, val mbMemory: Int, val javaVersion: String, val lastOpened: Int) : Comparable<Server> {
+class Server(val name: String, val location: File, val mcVersion: String, val modLoader: ModLoader, val mbMemory: Int, val javaVersion: String, val lastOpened: Long) : Comparable<Server> {
 
     data class StartScreenComponents(val label: JLabel, val openBtn: JButton)
 
@@ -49,7 +49,7 @@ class Server(val name: String, val location: File, val mcVersion: String, val mo
         ModLoader.valueOf(data.get("modLoader").textValue()),
         data.get("mbMemory").intValue(),
         data.get("javaVersion").textValue(),
-        data.get("lastOpened").intValue()
+        data.get("lastOpened").longValue()
     )
 
     fun getStartCommand(): String {
@@ -66,6 +66,10 @@ class Server(val name: String, val location: File, val mcVersion: String, val mo
 
     fun relativeFile(path: String): File {
         return File("${location.absolutePath}/$path")
+    }
+
+    suspend fun downloadFiles() {
+        modLoader.downloadFiles(this)
     }
 
     override fun compareTo(other: Server): Int {

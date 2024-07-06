@@ -26,15 +26,22 @@ class ConsolePanel : JPanel() {
 
     init {
         layout = GridBagLayout()
+        // Output box
+        outputBox.font = MONOSPACED_FONT
+        outputBox.isEditable = false
+        outputBox.alignmentY = BOTTOM_ALIGNMENT
+        val scrollPane = JScrollPane(outputBox, JScrollPane.VERTICAL_SCROLLBAR_ALWAYS, JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED)
+        add(scrollPane, getConstraints(1, 2, gridwidth = 2, fill = GridBagConstraints.BOTH, insets = getInsets(left = 5, right = 5)))
         // Start button
         startBtn.addActionListener {
             if (consoleWrapper == null) {
                 updateStartBtn(true)
                 GlobalScope.launch {
-                    consoleWrapper = ConsoleWrapper.create(server!!.location, server!!.getStartCommand()) {
+                    consoleWrapper = ConsoleWrapper(server!!.location, server!!.getStartCommand()) {
                         outputBox.append("$it\n")
-                        outputBox.selectionStart = outputBox.text.length
+                        scrollPane.verticalScrollBar.value = Int.MAX_VALUE
                     }
+                    consoleWrapper!!.start()
                     consoleWrapper = null
                     updateStartBtn()
                 }
@@ -42,16 +49,15 @@ class ConsolePanel : JPanel() {
         }
         updateStartBtn()
         add(startBtn, getConstraints(2, 1, insets = getInsets(right = 5, top = 5, bottom = 5)))
-        // Output box
-        outputBox.font = MONOSPACED_FONT
-        val scrollPane = JScrollPane(outputBox, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED)
-        add(scrollPane, getConstraints(1, 2, gridwidth = 2, fill = GridBagConstraints.BOTH, insets = getInsets(left = 5, right = 5)))
         // Input box
         val textField = JTextField()
         textField.addKeyListener(object : KeyAdapter() {
             override fun keyReleased(e: KeyEvent?) {
                 if (e?.keyCode == KeyEvent.VK_ENTER) {
-                    consoleWrapper?.sendCommand(textField.text)
+                    if (consoleWrapper != null) {
+                        outputBox.append(textField.text + "\n")
+                        consoleWrapper!!.sendCommand(textField.text)
+                    }
                     textField.text = ""
                 }
             }

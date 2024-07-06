@@ -309,10 +309,10 @@ enum class ModLoader {
             val lineCount = AtomicInteger()
             val lastOutput = AtomicReference("Running Forge installer")
             val job = STATUS_PANEL!!.TrackedJob({ lineCount.get() / 22507 }, { lastOutput.get() })
-            ConsoleWrapper.create(server.location, "${server.javaVersion} -jar installer.jar -installServer") {
+            ConsoleWrapper(server.location, "${server.javaVersion} -jar installer.jar -installServer") {
                 lineCount.incrementAndGet()
                 lastOutput.set(it)
-            }
+            }.start()
             job.complete()
         }
     }

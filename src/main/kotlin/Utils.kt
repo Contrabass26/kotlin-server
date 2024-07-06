@@ -163,41 +163,38 @@ fun String.looksLikeMcVersion(): Boolean {
     return matches("[0-9]+\\.[0-9]+(?:\\.[0-9]+)?".toRegex())
 }
 
-class ConsoleWrapper private constructor(location: File, vararg command: String) {
+class ConsoleWrapper(
+    private val location: File,
+    private val command: String,
+    private val outputConsumer: (String) -> Unit) {
 
-    private val process: Process = ProcessBuilder(*command).directory(location).start()
-    private val writer: BufferedWriter = process.outputWriter();
+    private var process: Process? = null
+    private var writer: BufferedWriter? = null
 
-    private fun stop() {
-        process.destroyForcibly()
-        process.inputStream.close()
-        process.outputStream.close()
-        process.errorStream.close()
-        writer.close()
+    suspend fun start() = withContext(Dispatchers.IO) {
+        process = ProcessBuilder(command.split(' ')).directory(location).start()
+        writer = process!!.outputWriter()
+        val reader = process!!.inputReader()
+        launch {
+            reader.use { reader ->
+                reader!!.lines().forEach { outputConsumer(it) }
+            }
+            reader.close()
+            stop()
+        }
     }
 
-    companion object {
-        suspend fun create(location: File, vararg command: String, outputConsumer: (String) -> Unit) = withContext(Dispatchers.IO) {
-            val consoleWrapper = ConsoleWrapper(location, *command)
-            val reader = consoleWrapper.process.inputReader()
-            launch {
-                reader.use { reader ->
-                    reader!!.lines().forEach { outputConsumer(it) }
-                }
-                reader.close()
-                consoleWrapper.stop()
-            }
-            return@withContext consoleWrapper
-        }
-
-        suspend fun create(location: File, command: String, outputConsumer: (String) -> Unit) = withContext(Dispatchers.IO) {
-            return@withContext create(location, *command.split(' ').toTypedArray()) { outputConsumer(it) }
-        }
+    private fun stop() {
+        process!!.destroyForcibly()
+        process!!.inputStream.close()
+        process!!.outputStream.close()
+        process!!.errorStream.close()
+        writer!!.close()
     }
 
     fun send(s: String) {
-        writer.write(s)
-        writer.flush()
+        writer?.write(s)
+        writer?.flush()
     }
 }
 
