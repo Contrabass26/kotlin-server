@@ -17,9 +17,12 @@ import java.net.HttpURLConnection
 import java.net.URI
 import java.net.URL
 import javax.management.*
+import javax.swing.ComboBoxModel
+import javax.swing.DefaultComboBoxModel
 import javax.swing.JFrame
 import javax.swing.event.DocumentEvent
 import javax.swing.event.DocumentListener
+import javax.swing.event.ListDataListener
 import javax.swing.text.Document
 import kotlin.math.roundToInt
 

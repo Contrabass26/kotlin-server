@@ -266,7 +266,7 @@ enum class ModLoader {
     protected val logger: Logger = LogManager.getLogger(this.name)
 
     companion object {
-        lateinit var mcVersions: Deferred<List<String>>
+        private lateinit var mcVersions: Deferred<List<String>>
         private val logger = LogManager.getLogger("ModLoader")
 
         suspend fun init() = coroutineScope {

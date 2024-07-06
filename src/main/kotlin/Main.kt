@@ -23,6 +23,7 @@ var CREATE_SERVER_SCREEN: CreateServerScreen? = null
 var MAIN_SCREEN: MainScreen? = null
 var STATUS_PANEL: StatusPanel? = null
 private var statusUpdateJob: Job? = null
+var modLoaderInitJob: Job? = null
 
 fun cancelStatusUpdate() {
     if (statusUpdateJob != null) {
@@ -36,7 +37,7 @@ class Main {
     companion object {
         @JvmStatic
         fun main(args: Array<String>): Unit = runBlocking {
-            launch { ModLoader.init() }
+            modLoaderInitJob = launch { ModLoader.init() }
             // Initialise GUI appearance
             val themeDetector = OsThemeDetector.getDetector()
             val isDark = themeDetector.isDark
@@ -46,9 +47,9 @@ class Main {
             } else {
                 FlatLightLaf.setup()
             }
-            // Start screen
-            START_SCREEN = StartScreen()
+            // Create GUIs
             CREATE_SERVER_SCREEN = CreateServerScreen()
+            START_SCREEN = StartScreen()
             MAIN_SCREEN = MainScreen()
             STATUS_PANEL = MAIN_SCREEN!!.statusPanel
             // Load servers

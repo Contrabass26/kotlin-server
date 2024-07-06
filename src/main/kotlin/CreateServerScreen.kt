@@ -1,18 +1,19 @@
-import kotlinx.coroutines.runBlocking
-import java.awt.Color
+import kotlinx.coroutines.*
+import kotlinx.coroutines.swing.Swing
 import java.awt.GridBagConstraints
 import java.awt.GridBagLayout
 import java.awt.event.WindowAdapter
 import java.awt.event.WindowEvent
-import java.util.Dictionary
+import java.io.File
 import java.util.Hashtable
 import javax.swing.*
 import kotlin.math.roundToInt
 
-
 class CreateServerScreen : JFrame("Create server") {
 
-    private val memoryFeedbackLbl: JLabel
+    private val nameField: JTextField
+    private val locationField: JTextField
+    private val modLoaderRadios: ButtonGroup
     private val memorySlider: JSlider
 
     init {
@@ -28,14 +29,14 @@ class CreateServerScreen : JFrame("Create server") {
         layout = GridBagLayout()
         // Server name
         val nameLbl = JLabel("Server name:")
-        val nameField = JTextField()
+        nameField = JTextField()
         createInnerPanel {
             it.add(nameLbl, getConstraints(anchor = GridBagConstraints.WEST, insets = getInsets(right = 5)))
             it.add(nameField, getConstraints(gridx = 2, weightx = 1.0, gridwidth = 2))
         }
         // Server location
         val locationLbl = JLabel("Server location:")
-        val locationField = JTextField()
+        locationField = JTextField()
         val locationBtn = JButton("Choose")
         locationBtn.addActionListener {
             val fileChooser = JFileChooser(USER_HOME)
@@ -50,10 +51,10 @@ class CreateServerScreen : JFrame("Create server") {
         }
         // Mod loader
         val modLoaderLbl = JLabel("Mod loader:")
-        val modLoaderRadios = ButtonGroup()
+        modLoaderRadios = ButtonGroup()
         ModLoader.entries
-            .map { JRadioButton(it.toString()) }
-            .forEach(modLoaderRadios::add)
+            .map { JRadioButton(it.toString(), it == ModLoader.VANILLA) }
+            .forEach { modLoaderRadios.add(it) }
         createInnerPanel {
             it.add(modLoaderLbl, getConstraints(anchor = GridBagConstraints.WEST, insets = getInsets(right = 5)))
             modLoaderRadios.elements.iterator().forEach { radio ->
@@ -63,29 +64,30 @@ class CreateServerScreen : JFrame("Create server") {
         }
         // Minecraft version
         val mcVersionLbl = JLabel("Minecraft version:")
-        val mcVersions = runBlocking { ModLoader.getMcVersions() }
-        val mcVersionCombo = JComboBox(mcVersions.toTypedArray())
+        val mcVersionComboModel = DefaultComboBoxModel<String>()
+        val mcVersionCombo = JComboBox(mcVersionComboModel)
+        @OptIn(DelicateCoroutinesApi::class)
+        GlobalScope.launch(Dispatchers.Swing) {
+            modLoaderInitJob!!.join()
+            mcVersionComboModel.addAll(ModLoader.getMcVersions())
+        }
         createInnerPanel {
             it.add(mcVersionLbl, getConstraints(anchor = GridBagConstraints.WEST, insets = getInsets(right = 5)))
             it.add(mcVersionCombo, getConstraints(gridx = GridBagConstraints.RELATIVE, weightx = 1.0))
         }
         // Memory allocation
         val memoryLbl = JLabel("Memory allocation:")
-        memoryFeedbackLbl = JLabel()
-        memorySlider = JSlider(0, SYSTEM_MEMORY_MB).apply {
+        memorySlider = JSlider(0, SYSTEM_MEMORY_GB * 1024).apply {
             majorTickSpacing = 1024
             snapToTicks = true
             labelTable = Hashtable<Int, JLabel>().apply {
-                for (i in 0..SYSTEM_MEMORY_MB step 1024) {
-                    this[i] = JLabel(i.toString())
+                for (i in 0..SYSTEM_MEMORY_GB) {
+                    this[i * 1024] = JLabel(i.toString())
                 }
             }
             paintLabels = true
-            addChangeListener { updateMemoryFeedback() }
         }
-        updateMemoryFeedback()
         val memoryCheckBox = JCheckBox("Snap to GB", true).apply {
-            horizontalAlignment = SwingConstants.RIGHT
             addChangeListener {
                 memorySlider.snapToTicks = isSelected
                 if (isSelected) {
@@ -94,45 +96,91 @@ class CreateServerScreen : JFrame("Create server") {
                 }
             }
         }
-        createInnerPanel(true) {
+        createInnerPanel {
             it.add(memoryLbl, getConstraints())
-            it.add(memorySlider, getConstraints(gridx = 2, weightx = 1.0, insets = getInsets(left = 5, right = 5)))
-            it.add(memoryCheckBox, getConstraints(gridx = 3))
-            it.add(memoryFeedbackLbl, getConstraints(gridy = 2, gridwidth = 3, insets = getInsets(top = 5), weightx = 1.0))
+            it.add(memorySlider, getConstraints(gridx = 2, gridheight = 2, weightx = 1.0, insets = getInsets(left = 5)))
+            it.add(memoryCheckBox, getConstraints(gridy = 2, anchor = GridBagConstraints.WEST, insets = getInsets(top = 5)))
         }
+        // "Create" button
+        val createBtn = JButton("Create")
+        createBtn.addActionListener {
+            if (validateOptions()) {
+
+            }
+        }
+        add(createBtn, getConstraints(gridy = GridBagConstraints.RELATIVE, weightx = 1.0, insets = getInsets(top = 5, left = 5, right = 5)))
         // Padding
         add(JPanel(), getConstraints(gridy = GridBagConstraints.RELATIVE, fill = GridBagConstraints.BOTH))
     }
 
-    private fun updateMemoryFeedback() {
-        when {
-            (memorySlider.value < 1024) ->
-                memoryFeedbackLbl.setFeedback("You probably need more memory than that", Color.ORANGE)
-
-            (memorySlider.value > SYSTEM_MEMORY_MB - 2048) ->
-                memoryFeedbackLbl.setFeedback("Other programs probably need more memory than that", Color.ORANGE)
-
-            else ->
-                memoryFeedbackLbl.setFeedback("Valid memory allocation", Color.GREEN)
+    private fun validateOptions(): Boolean {
+        // Server name
+        if (SERVERS.elements().asSequence().any { it.name == nameField.text }) {
+            complain("There is already a server called \"${nameField.text}\". Server names must be unique.")
+            return false
         }
+        // Server location
+        val location = File(locationField.text)
+        if (!location.exists()) {
+            complain("Selected server location does not exist: \"${locationField.text}\"")
+            return false
+        }
+        val children: Array<File>? = location.listFiles()
+        if (children == null) {
+            complain("Selected server location is not a directory: \"${locationField.text}\"")
+            return false
+        }
+        if (children.isNotEmpty()) {
+            if (!warn("Selected server location is not empty - files may be overwritten."))
+                return false
+        }
+        // Minecraft version and mod loader
+        val modLoader = ModLoader.valueOf((modLoaderRadios.selection as JRadioButton).text.uppercase())
+
+        return true
     }
 
-    private fun JLabel.setFeedback(text: String, color: Color) {
-        this.text = text
-        this.foreground = color
+    private fun complain(message: String) {
+        JOptionPane.showMessageDialog(
+            this,
+            message,
+            "Invalid options",
+            JOptionPane.ERROR_MESSAGE
+        )
     }
+
+    private fun warn(message: String): Boolean { // Returns whether the user chose to continue
+        return JOptionPane.showConfirmDialog(
+            this,
+            message,
+            "Suspicious options",
+            JOptionPane.OK_CANCEL_OPTION,
+            JOptionPane.WARNING_MESSAGE
+        ) == JOptionPane.OK_OPTION
+    }
+
+//    private fun updateMemoryFeedback() {
+//        when {
+//            (memorySlider.value < 1024) ->
+//                memoryFeedbackLbl.setFeedback("You probably need more memory than that", Color.ORANGE)
+//
+//            (memorySlider.value > SYSTEM_MEMORY_MB - 2048) ->
+//                memoryFeedbackLbl.setFeedback("Other programs probably need more memory than that", Color.ORANGE)
+//
+//            else ->
+//                memoryFeedbackLbl.setFeedback("Valid memory allocation", Color.GREEN)
+//        }
+//    }
 
     fun showScreen() {
         isVisible = true
     }
 
-    private fun createInnerPanel(last: Boolean = false, addComponents: (JPanel) -> Unit) {
+    private fun createInnerPanel(addComponents: (JPanel) -> Unit) {
         val panel = JPanel()
         panel.layout = GridBagLayout()
         addComponents(panel)
         add(panel, getConstraints(gridy = GridBagConstraints.RELATIVE, weightx = 1.0, insets = getInsets(5, 5, 5, 5)))
-        if (!last) {
-            add(JSeparator(), getConstraints(gridy = GridBagConstraints.RELATIVE, weightx = 1.0))
-        }
+        add(JSeparator(), getConstraints(gridy = GridBagConstraints.RELATIVE, weightx = 1.0))
     }
 }
