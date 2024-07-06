@@ -21,6 +21,7 @@ import javax.swing.JFrame
 import javax.swing.event.DocumentEvent
 import javax.swing.event.DocumentListener
 import javax.swing.text.Document
+import kotlin.math.roundToInt
 
 private val LOGGER = LogManager.getLogger()
 val USERNAME: String = System.getProperty("user.name")
@@ -44,17 +45,28 @@ val USER_HOME by lazy {
     }, USERNAME)
 }
 
-val SYSTEM_MEMORY_BYTES: Long by lazy {
+val SYSTEM_MEMORY_B: Long by lazy {
     val mBeanServer = ManagementFactory.getPlatformMBeanServer()
     try {
-        mBeanServer.getAttribute(
+        val memory = mBeanServer.getAttribute(
             ObjectName("java.lang", "type", "OperatingSystem"),
             "TotalPhysicalMemorySize"
         ) as Long
+        LOGGER.info("Detected system memory size: $memory bytes")
+        return@lazy memory
     } catch (e: Throwable) {
         LOGGER.error("Failed to read system memory", e)
     }
-    8589934592L
+    LOGGER.warn("Using default system memory size: 8GB")
+    8589934592
+}
+
+val SYSTEM_MEMORY_MB: Int by lazy {
+    (SYSTEM_MEMORY_B / 1048576f).roundToInt()
+}
+
+val SYSTEM_MEMORY_GB: Int by lazy {
+    (SYSTEM_MEMORY_MB / 1024f).roundToInt()
 }
 
 // Utility extension to set frame size based on screen resolution

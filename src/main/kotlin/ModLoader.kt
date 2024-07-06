@@ -270,20 +270,18 @@ enum class ModLoader {
         private val logger = LogManager.getLogger("ModLoader")
 
         suspend fun init() = coroutineScope {
-            launch {
-                mcVersions = async {
-                    val url = getUrl("https://piston-meta.mojang.com/mc/game/version_manifest_v2.json")
-                    val versions: ArrayNode = getJson(url).get("versions") as ArrayNode
-                    versions.asSequence()
-                        .filter { it.get("type").textValue() == "release" }
-                        .map { it.get("id").textValue() }
-                        .toList()
-                }
-                logger.info("Loaded ${mcVersions.await().size} Minecraft versions")
+            mcVersions = async {
+                val url = getUrl("https://piston-meta.mojang.com/mc/game/version_manifest_v2.json")
+                val versions: ArrayNode = getJson(url).get("versions") as ArrayNode
+                versions.asSequence()
+                    .filter { it.get("type").textValue() == "release" }
+                    .map { it.get("id").textValue() }
+                    .toList()
             }
             entries.forEach {
                 launch { it.init() }
             }
+            launch { logger.info("Loaded ${mcVersions.await().size} Minecraft versions") }
         }
 
         suspend fun getMcVersions(): List<String> {

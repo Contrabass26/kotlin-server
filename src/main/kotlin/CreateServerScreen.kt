@@ -1,12 +1,19 @@
 import kotlinx.coroutines.runBlocking
+import java.awt.Color
 import java.awt.GridBagConstraints
 import java.awt.GridBagLayout
 import java.awt.event.WindowAdapter
 import java.awt.event.WindowEvent
+import java.util.Dictionary
+import java.util.Hashtable
 import javax.swing.*
+import kotlin.math.roundToInt
 
 
 class CreateServerScreen : JFrame("Create server") {
+
+    private val memoryFeedbackLbl: JLabel
+    private val memorySlider: JSlider
 
     init {
         setSize(0.5, 0.7)
@@ -64,19 +71,68 @@ class CreateServerScreen : JFrame("Create server") {
         }
         // Memory allocation
         val memoryLbl = JLabel("Memory allocation:")
-        val memorySlider = JSlider(0, )
+        memoryFeedbackLbl = JLabel()
+        memorySlider = JSlider(0, SYSTEM_MEMORY_MB).apply {
+            majorTickSpacing = 1024
+            snapToTicks = true
+            labelTable = Hashtable<Int, JLabel>().apply {
+                for (i in 0..SYSTEM_MEMORY_MB step 1024) {
+                    this[i] = JLabel(i.toString())
+                }
+            }
+            paintLabels = true
+            addChangeListener { updateMemoryFeedback() }
+        }
+        updateMemoryFeedback()
+        val memoryCheckBox = JCheckBox("Snap to GB", true).apply {
+            horizontalAlignment = SwingConstants.RIGHT
+            addChangeListener {
+                memorySlider.snapToTicks = isSelected
+                if (isSelected) {
+                    // Round to nearest 1024
+                    memorySlider.value = (memorySlider.value / 1024f).roundToInt() * 1024
+                }
+            }
+        }
+        createInnerPanel(true) {
+            it.add(memoryLbl, getConstraints())
+            it.add(memorySlider, getConstraints(gridx = 2, weightx = 1.0, insets = getInsets(left = 5, right = 5)))
+            it.add(memoryCheckBox, getConstraints(gridx = 3))
+            it.add(memoryFeedbackLbl, getConstraints(gridy = 2, gridwidth = 3, insets = getInsets(top = 5), weightx = 1.0))
+        }
         // Padding
         add(JPanel(), getConstraints(gridy = GridBagConstraints.RELATIVE, fill = GridBagConstraints.BOTH))
+    }
+
+    private fun updateMemoryFeedback() {
+        when {
+            (memorySlider.value < 1024) ->
+                memoryFeedbackLbl.setFeedback("You probably need more memory than that", Color.ORANGE)
+
+            (memorySlider.value > SYSTEM_MEMORY_MB - 2048) ->
+                memoryFeedbackLbl.setFeedback("Other programs probably need more memory than that", Color.ORANGE)
+
+            else ->
+                memoryFeedbackLbl.setFeedback("Valid memory allocation", Color.GREEN)
+        }
+    }
+
+    private fun JLabel.setFeedback(text: String, color: Color) {
+        this.text = text
+        this.foreground = color
     }
 
     fun showScreen() {
         isVisible = true
     }
 
-    private fun createInnerPanel(addComponents: (JPanel) -> Unit) {
+    private fun createInnerPanel(last: Boolean = false, addComponents: (JPanel) -> Unit) {
         val panel = JPanel()
         panel.layout = GridBagLayout()
         addComponents(panel)
         add(panel, getConstraints(gridy = GridBagConstraints.RELATIVE, weightx = 1.0, insets = getInsets(5, 5, 5, 5)))
+        if (!last) {
+            add(JSeparator(), getConstraints(gridy = GridBagConstraints.RELATIVE, weightx = 1.0))
+        }
     }
 }
