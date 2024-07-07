@@ -39,6 +39,7 @@ class MainScreen : JFrame("Minecraft wrapper") {
 
     fun setServer(server: Server) {
         this.server = server
+        server.lastOpened = System.currentTimeMillis()
         fileExplorer.setServer(server)
         console.setServer(server)
         isVisible = true

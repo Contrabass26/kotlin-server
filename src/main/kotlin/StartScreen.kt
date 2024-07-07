@@ -33,6 +33,7 @@ class StartScreen : JFrame("Welcome") {
         addWindowListener(object : WindowAdapter() {
             override fun windowClosing(e: WindowEvent?) {
                 cancelStatusUpdate()
+                saveServers()
                 dispose()
                 exitProcess(0)
             }

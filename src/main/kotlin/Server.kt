@@ -1,13 +1,17 @@
 import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.annotation.JsonSerialize
 import com.fasterxml.jackson.databind.node.ArrayNode
+import org.apache.logging.log4j.LogManager
 import java.io.File
 import java.io.IOException
-import javax.swing.DefaultListModel
-import javax.swing.JButton
-import javax.swing.JLabel
-import javax.swing.SwingUtilities
+import javax.swing.*
+
+private val LOGGER = LogManager.getLogger("Server")
 
 val SERVERS = DefaultListModel<Server>()
+
+val DATA_PATH = "$APP_DATA_LOCATION/minecraft-wrapper-kt"
+val SERVERS_PATH = "$DATA_PATH/servers.json"
 
 // Utility to add items to DefaultListModel
 fun DefaultListModel<Server>.insertSorted(item: Server) {
@@ -22,20 +26,41 @@ fun DefaultListModel<Server>.insertSorted(item: Server) {
     }
 }
 
+fun <T> ListModel<T>.asSequence(): Sequence<T> = (0..<size)
+    .asSequence()
+    .map { getElementAt(it) }
+
 fun loadServers() {
     SERVERS.clear()
-    val path = "$APP_DATA_LOCATION/minecraft-wrapper-kt/servers.json"
     try {
-        val servers: ArrayNode = JSON_MAPPER.readTree(File(path)) as ArrayNode
+        val servers: ArrayNode = JSON_MAPPER.readTree(File(SERVERS_PATH)) as ArrayNode
         for (serverData in servers) {
             SERVERS.insertSorted(Server(serverData))
         }
     } catch (e: IOException) {
-        println("Failed to load servers")
+        LOGGER.warn("Failed to load servers", e)
     }
 }
 
-class Server(val name: String, val location: File, val mcVersion: String, val modLoader: ModLoader, val mbMemory: Int, val javaVersion: String, val lastOpened: Long) : Comparable<Server> {
+fun saveServers() {
+    try {
+        File(DATA_PATH).mkdirs()
+        JSON_MAPPER.writeValue(File(SERVERS_PATH), SERVERS.asSequence().toList())
+    } catch (e: IOException) {
+        LOGGER.error("Failed to save servers", e)
+    }
+}
+
+@JsonSerialize(using = ServerSerializer::class)
+class Server(
+    val name: String,
+    val location: File,
+    val mcVersion: String,
+    val modLoader: ModLoader,
+    val mbMemory: Int,
+    val javaVersion: String,
+    var lastOpened: Long
+) : Comparable<Server> {
 
     data class StartScreenComponents(val label: JLabel, val openBtn: JButton)
 
