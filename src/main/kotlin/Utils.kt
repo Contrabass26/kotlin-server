@@ -208,7 +208,7 @@ fun convertVersion(version: String): Sequence<Int> {
 }
 
 fun getMajorVersion(mcVersion: String): String {
-    return StringUtils.join(convertVersion(mcVersion).take(2), '.')
+    return StringUtils.join(convertVersion(mcVersion).take(2).toList().toTypedArray(), '.')
 }
 
 val MC_VERSION_COMPARATOR = Comparator<String> { v1, v2 ->
@@ -227,7 +227,7 @@ suspend fun downloadFile(url: URL, destination: File) = withContext(Dispatchers.
     val length = connection.contentLength
     val inputStream = connection.inputStream
     CountingOutputStream(FileOutputStream(destination)).use {
-        val job = STATUS_PANEL!!.TrackedJob({ it.count / length }, { status })
+        val job = STATUS_PANEL!!.TrackedJob({ it.count / length.toDouble() }, { status })
         inputStream.transferTo(it)
         job.complete()
     }
@@ -243,7 +243,7 @@ suspend fun getJson(url: URL): JsonNode = withContext(Dispatchers.IO) {
         val stream = connection.inputStream
         var node: JsonNode? = null
         CountingInputStream(stream).use {
-            val job = STATUS_PANEL?.TrackedJob({ it.count / length }, { status })
+            val job = STATUS_PANEL?.TrackedJob({ it.count / length.toDouble() }, { status })
             node = JSON_MAPPER.readTree(it)
             job?.complete()
         }

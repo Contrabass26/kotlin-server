@@ -1,11 +1,11 @@
 import kotlinx.coroutines.*
-import java.awt.Color
-import java.awt.Dimension
-import java.awt.GridBagConstraints
-import java.awt.GridBagLayout
+import org.apache.logging.log4j.LogManager
+import java.awt.*
 import java.awt.event.KeyAdapter
 import java.awt.event.KeyEvent
 import javax.swing.*
+
+private val LOGGER = LogManager.getLogger("ConsolePanel")
 
 private fun ConsoleWrapper.sendCommand(command: String) {
     send("$command\n")
@@ -16,12 +16,7 @@ class ConsolePanel : JPanel() {
 
     private var consoleWrapper: ConsoleWrapper? = null
     private var server: Server? = null
-    private val outputBox = object : JTextArea() {
-        // Size shouldn't change depending on contents
-        override fun getPreferredSize(): Dimension {
-            return Dimension(400, 400)
-        }
-    }
+    private val outputBox = JTextArea()
     private val startBtn = JButton()
 
     init {
@@ -31,13 +26,15 @@ class ConsolePanel : JPanel() {
         outputBox.isEditable = false
         outputBox.alignmentY = BOTTOM_ALIGNMENT
         val scrollPane = JScrollPane(outputBox, JScrollPane.VERTICAL_SCROLLBAR_ALWAYS, JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED)
-        add(scrollPane, getConstraints(1, 2, gridwidth = 2, fill = GridBagConstraints.BOTH, insets = getInsets(left = 5, right = 5)))
+        add(scrollPane, getConstraints(1, 2, gridwidth = 2, fill = GridBagConstraints.BOTH, insets = getInsets(5, 5, 5, 5)))
         // Start button
         startBtn.addActionListener {
             if (consoleWrapper == null) {
                 updateStartBtn(true)
                 GlobalScope.launch {
-                    consoleWrapper = ConsoleWrapper(server!!.location, server!!.getStartCommand()) {
+                    val command = server!!.getStartCommand()
+                    LOGGER.info("Starting server: $command")
+                    consoleWrapper = ConsoleWrapper(server!!.location, command) {
                         outputBox.append("$it\n")
                         scrollPane.verticalScrollBar.value = Int.MAX_VALUE
                     }
@@ -45,7 +42,10 @@ class ConsolePanel : JPanel() {
                     consoleWrapper = null
                     updateStartBtn()
                 }
-            } else consoleWrapper!!.sendCommand("stop")
+            } else {
+                outputBox.append("stop\n")
+                consoleWrapper!!.sendCommand("stop")
+            }
         }
         updateStartBtn()
         add(startBtn, getConstraints(2, 1, insets = getInsets(right = 5, top = 5, bottom = 5)))

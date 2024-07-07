@@ -119,6 +119,10 @@ class CreateServerScreen : JFrame("Create server") {
                     System.currentTimeMillis()
                 )
                 SERVERS.insertSorted(server)
+                // Switch to main screen
+                this.isVisible = false
+                MAIN_SCREEN!!.setServer(server)
+                MAIN_SCREEN!!.isVisible = true
                 // Download files
                 @OptIn(DelicateCoroutinesApi::class)
                 GlobalScope.launch(Dispatchers.IO) { server.downloadFiles() }

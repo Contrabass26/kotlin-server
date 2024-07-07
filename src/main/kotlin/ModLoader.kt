@@ -90,7 +90,7 @@ enum class ModLoader {
 
         override suspend fun downloadFiles(server: Server) {
             super.downloadFiles(server)
-            downloadFile(getUrl("https://meta.fabricmc.net/v2/versions/loader/${server.mcVersion}/$loaderVersion/$installerVersion/server/jar"), server.relativeFile("/fabric-server-launch.jar"))
+            downloadFile(getUrl("https://meta.fabricmc.net/v2/versions/loader/${server.mcVersion}/${loaderVersion.await()}/${installerVersion.await()}/server/jar"), server.relativeFile("/fabric-server-launch.jar"))
         }
     },
     FORGE {
@@ -111,8 +111,21 @@ enum class ModLoader {
             }
         }
 
-        override fun getStartCommand(server: Server): String =
-            getForgeStartCommand("minecraftforge", "forge", server)
+        override fun getStartCommand(server: Server): String {
+            val os = if (SystemUtils.IS_OS_WINDOWS) "win" else "unix"
+            return server.run {
+                        location.listFiles()!!
+                            .asSequence()
+                            .map { it.name }
+                            .filter { it.contains(mcVersion) }
+                            .find { it.matches("minecraft_server.*\\.jar".toRegex()) }
+                            ?.let { "$javaVersion -Xmx${mbMemory}M -jar $it nogui" }
+                            ?: relativeFile("/libraries/net/${"minecraftforge"}/${"forge"}").listFiles()!!
+                                .map { it.name }
+                                .find { it.contains(mcVersion) }!!
+                                .let { "$javaVersion -Xmx${mbMemory}M @libraries/net/${"minecraftforge"}/${"forge"}/$it/${os}_args.txt nogui %*" }
+                    }
+        }
 
         override suspend fun supportsVersion(mcVersion: String): Boolean = mcVersions.await().contains(mcVersion)
 
@@ -124,7 +137,7 @@ enum class ModLoader {
                 .child(0)
                 .attr("href")
             val url = Regex("url=(https://maven\\.minecraftforge\\.net/.*)")
-                .matchEntire(trackedUrl)!!
+                .find(trackedUrl)!!
                 .groups[1]!!
                 .value
             downloadFile(getUrl(url), server.relativeFile("/installer.jar"))
@@ -174,8 +187,16 @@ enum class ModLoader {
             }
         }
 
-        override fun getStartCommand(server: Server): String =
-            getForgeStartCommand("neoforged", "neoforge", server)
+        override fun getStartCommand(server: Server): String {
+            val os = if (SystemUtils.IS_OS_WINDOWS) "win" else "unix"
+            return server.run {
+                val mcVersionPart = StringUtils.substringAfter(mcVersion, ".")
+                relativeFile("/libraries/net/neoforged/neoforge").listFiles()!!
+                    .map { it.name }
+                    .find { it.startsWith(mcVersionPart) }!!
+                    .let { "$javaVersion -Xmx${mbMemory}M @libraries/net/${"neoforged"}/${"neoforge"}/$it/${os}_args.txt nogui %*" }
+            }
+        }
 
         override suspend fun supportsVersion(mcVersion: String): Boolean = mcVersions.await().contains(mcVersion)
 
@@ -183,7 +204,7 @@ enum class ModLoader {
             super.downloadFiles(server)
             val neoVersion = neoVersions.await()
                 .find { MC_VERSION_COMPARATOR.compare(normaliseVersion(it), server.mcVersion) == 0 }!!
-            val url = getUrl("https://maven.neoforged.net/releases/net/neoforged/neoforge/%s/neoforge-$neoVersion-installer.jar")
+            val url = getUrl("https://maven.neoforged.net/releases/net/neoforged/neoforge/$neoVersion/neoforge-$neoVersion-installer.jar")
             downloadFile(url, server.relativeFile("/installer.jar"))
             runForgeInstaller(server)
         }
@@ -202,7 +223,9 @@ enum class ModLoader {
             }
         }
 
-        override suspend fun supportsVersion(mcVersion: String): Boolean = ghBranches.await().contains("ver/${getMajorVersion(mcVersion)}")
+        override suspend fun supportsVersion(mcVersion: String): Boolean {
+            return ghBranches.await().contains("ver/${getMajorVersion(mcVersion)}")
+        }
 
         override fun getStartCommand(server: Server): String = 
             server.run { "$javaVersion -Xmx${mbMemory}M -jar pufferfish.jar nogui" }
@@ -216,7 +239,7 @@ enum class ModLoader {
             val message = if (initialBuild == null)
                 "No relevant build was detected on <a href=$changelogUrl>changelog</a>"
             else
-                "Detected build %s in <a href=$changelogUrl>changelog</a>"
+                "Detected build $initialBuild in <a href=$changelogUrl>changelog</a>"
             val messageLabel = JTextPane()
             messageLabel.contentType = "text/html"
             messageLabel.text = "<html>$message - enter the build to use:</html>"
@@ -288,27 +311,11 @@ enum class ModLoader {
             return mcVersions.await()
         }
 
-        protected fun getForgeStartCommand(organisation: String, name: String, server: Server): String {
-            val os = if (SystemUtils.IS_OS_WINDOWS) "win" else "unix"
-            return server.run {
-                location.listFiles()!!
-                    .asSequence()
-                    .map { it.name }
-                    .filter { it.contains(mcVersion) }
-                    .find { it.matches("minecraft_server.*\\.jar".toRegex()) }
-                    ?.let { "$javaVersion -Xmx${mbMemory}M -jar $it nogui" }
-                    ?: relativeFile("/libraries/net/$organisation/$name").listFiles()!!
-                        .map { it.name }
-                        .find { it.contains(mcVersion) }!!
-                        .let { "$javaVersion -Xmx${mbMemory}M @libraries/net/$organisation/$name/$it/${os}_args.txt nogui %*" }
-            }
-        }
-
         protected suspend fun runForgeInstaller(server: Server) {
             // Run installer
             val lineCount = AtomicInteger()
             val lastOutput = AtomicReference("Running Forge installer")
-            val job = STATUS_PANEL!!.TrackedJob({ lineCount.get() / 22507 }, { lastOutput.get() })
+            val job = STATUS_PANEL!!.TrackedJob({ lineCount.get() / 22507.toDouble() }, { lastOutput.get() })
             ConsoleWrapper(server.location, "${server.javaVersion} -jar installer.jar -installServer") {
                 lineCount.incrementAndGet()
                 lastOutput.set(it)

@@ -1,8 +1,11 @@
+import java.awt.GridBagConstraints
 import java.awt.GridBagLayout
 import javax.swing.JLabel
 import javax.swing.JPanel
 import javax.swing.JProgressBar
 import javax.swing.SwingUtilities
+
+private const val PROGRESS_BAR_RESOLUTION = 1000
 
 class StatusPanel : JPanel() {
 
@@ -20,15 +23,16 @@ class StatusPanel : JPanel() {
         }
     }
 
-    inner class TrackedJob(val getProgress: () -> Int, val getStatus: () -> String) {
+    inner class TrackedJob(val getProgress: () -> Double, val getStatus: () -> String) {
 
         private val label = JLabel()
         private val progressBar = JProgressBar()
 
         init {
             SwingUtilities.invokeLater {
-                add(label, getConstraints(1, jobs.size * 2))
-                add(progressBar, getConstraints(1, jobs.size * 2 + 1))
+                progressBar.maximum = PROGRESS_BAR_RESOLUTION
+                add(label, getConstraints(gridy = jobs.size * 2, weightx = 1.0, anchor = GridBagConstraints.WEST, insets = getInsets(5, 5, 5, 5)))
+                add(progressBar, getConstraints(gridy = jobs.size * 2 + 1, weightx = 1.0))
             }
             synchronized(jobs) { jobs.add(this) }
         }
@@ -37,13 +41,14 @@ class StatusPanel : JPanel() {
             SwingUtilities.invokeLater {
                 remove(label)
                 remove(progressBar)
+                refreshGui()
             }
             synchronized(jobs) { jobs.remove(this) }
         }
 
         fun update() {
             label.text = getStatus()
-            progressBar.value = getProgress()
+            progressBar.value = (getProgress() * PROGRESS_BAR_RESOLUTION).toInt()
         }
     }
 }

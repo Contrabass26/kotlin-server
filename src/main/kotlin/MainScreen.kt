@@ -1,3 +1,4 @@
+import java.awt.Dimension
 import java.awt.GridBagConstraints
 import java.awt.GridBagLayout
 import java.awt.event.WindowAdapter
@@ -23,11 +24,15 @@ class MainScreen : JFrame("Minecraft wrapper") {
         })
         layout = GridBagLayout()
         // File explorer
-        add(fileExplorer, getConstraints(1, 1, weightx = 0.2, fill = GridBagConstraints.BOTH))
+        add(fileExplorer, getConstraints(1, 1, weightx = 0.2, fill = GridBagConstraints.BOTH, insets = getInsets(5, 5, 5, 5)))
         // Main tabbed pane
-        val tabbedPane = JTabbedPane()
+        val tabbedPane = object : JTabbedPane() {
+            override fun getPreferredSize(): Dimension {
+                return Dimension((this@MainScreen.width * 0.8).toInt(), this@MainScreen.height)
+            }
+        }
         tabbedPane.addTab("Console", console)
-        add(tabbedPane, getConstraints(2, 1, weightx = 0.8, fill = GridBagConstraints.BOTH, insets = getInsets(left = 10)))
+        add(tabbedPane, getConstraints(2, 1, weightx = 0.8, fill = GridBagConstraints.BOTH, insets = getInsets(left = 5)))
         // Status bar
         add(statusPanel, getConstraints(1, 2, gridwidth = 2, weightx = 1.0))
     }
