@@ -9,7 +9,7 @@ import javax.swing.JTabbedPane
 class MainScreen : JFrame("Minecraft wrapper") {
 
     private var server: Server? = null
-    private val fileExplorer = FileExplorerPanel()
+    private val fileExplorer: FileExplorerPanel
     private val console = ConsolePanel()
     val statusPanel = StatusPanel()
 
@@ -23,16 +23,17 @@ class MainScreen : JFrame("Minecraft wrapper") {
             }
         })
         layout = GridBagLayout()
-        // File explorer
-        add(fileExplorer, getConstraints(1, 1, weightx = 0.2, fill = GridBagConstraints.BOTH, insets = getInsets(5, 5, 5, 5)))
-        // Main tabbed pane
+        // Tabbed pane
         val tabbedPane = object : JTabbedPane() {
             override fun getPreferredSize(): Dimension {
                 return Dimension((this@MainScreen.width * 0.8).toInt(), this@MainScreen.height)
             }
         }
         tabbedPane.addTab("Console", console)
-        add(tabbedPane, getConstraints(2, 1, weightx = 0.8, fill = GridBagConstraints.BOTH, insets = getInsets(left = 5)))
+        add(tabbedPane, getConstraints(2, 1, weightx = 0.8, fill = GridBagConstraints.BOTH))
+        // File explorer
+        fileExplorer = FileExplorerPanel(tabbedPane)
+        add(fileExplorer, getConstraints(1, 1, weightx = 0.2, fill = GridBagConstraints.BOTH, insets = getInsets(5, 5, 5, 5)))
         // Status bar
         add(statusPanel, getConstraints(1, 2, gridwidth = 2, weightx = 1.0))
     }

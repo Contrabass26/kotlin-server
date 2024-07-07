@@ -27,12 +27,14 @@ class StartScreen : JFrame("Welcome") {
 
     private var nextServerY = 4
     private var padding: JPanel
+    private val disposables: MutableList<Disposable> = mutableListOf()
 
     init {
         defaultCloseOperation = DO_NOTHING_ON_CLOSE
         addWindowListener(object : WindowAdapter() {
             override fun windowClosing(e: WindowEvent?) {
-                cancelStatusUpdate()
+                cancelJob(statusUpdateJob, "status update job")
+                disposables.forEach { it.dispose() }
                 saveServers()
                 dispose()
                 exitProcess(0)
@@ -68,6 +70,10 @@ class StartScreen : JFrame("Welcome") {
         add(padding, getConstraints(1, 3, gridwidth = 2, fill = GridBagConstraints.BOTH))
         // Finalise
         isVisible = true
+    }
+
+    fun registerDisposable(disposable: Disposable) {
+        disposables.add(disposable)
     }
 
     private fun refreshPadding() {

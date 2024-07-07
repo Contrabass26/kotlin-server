@@ -17,4 +17,9 @@ class FileTreeModel(rootDir: File) : DefaultTreeModel(DefaultMutableTreeNode(roo
             node.add(child)
         }
     }
+
+    fun addFile(path: String) {
+        var root = this.root
+
+    }
 }

@@ -22,15 +22,15 @@ var START_SCREEN: StartScreen? = null
 var CREATE_SERVER_SCREEN: CreateServerScreen? = null
 var MAIN_SCREEN: MainScreen? = null
 var STATUS_PANEL: StatusPanel? = null
-private var statusUpdateJob: Job? = null
+var statusUpdateJob: Job? = null
 var modLoaderInitJob: Job? = null
 
-fun cancelStatusUpdate() {
-    if (statusUpdateJob != null) {
-        statusUpdateJob!!.cancel()
-        statusUpdateJob = null
-        LOGGER.info("Cancelled status panel update job")
+fun cancelJob(job: Job?, name: String = "job"): Job? {
+    if (job != null) {
+        job.cancel()
+        LOGGER.info("Cancelled $name")
     }
+    return null
 }
 
 class Main {
