@@ -1,5 +1,4 @@
 import java.io.File
-import java.util.*
 import javax.swing.tree.DefaultMutableTreeNode
 import javax.swing.tree.DefaultTreeModel
 import javax.swing.tree.MutableTreeNode
@@ -23,7 +22,7 @@ class FileTreeModel(rootDir: File) : DefaultTreeModel(DefaultMutableTreeNode(roo
         }
     }
 
-    private fun TreeNode.getChild(child: Any): TreeNode? = children().asSequence().find { it == child }
+    private fun TreeNode.getChild(child: String): TreeNode? = children().asSequence().find { (it as DefaultMutableTreeNode).userObject == child }
 
     private fun insertNodeInto(newChild: DefaultMutableTreeNode, parent: MutableTreeNode) {
         val childValue = newChild.userObject as String
@@ -50,5 +49,14 @@ class FileTreeModel(rootDir: File) : DefaultTreeModel(DefaultMutableTreeNode(roo
                 current = child
             }
         }
+    }
+
+    fun deleteFile(path: String) {
+        var current = this.root as MutableTreeNode
+        val splits = path.split(File.separatorChar)
+        for (split in splits) {
+            current = current.getChild(split) as MutableTreeNode
+        }
+        removeNodeFromParent(current)
     }
 }

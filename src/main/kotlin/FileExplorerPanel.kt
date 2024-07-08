@@ -4,16 +4,15 @@ import java.awt.GridBagLayout
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 import java.io.File
-import java.nio.file.ClosedWatchServiceException
-import java.nio.file.FileSystems
-import java.nio.file.StandardWatchEventKinds
-import java.nio.file.WatchEvent
-import java.nio.file.WatchKey
-import java.nio.file.WatchService
+import java.nio.file.*
+import java.util.concurrent.ConcurrentHashMap
 import javax.swing.JPanel
 import javax.swing.JTabbedPane
 import javax.swing.JTree
+import javax.swing.SwingUtilities
 import kotlin.concurrent.thread
+import kotlin.io.path.pathString
+import kotlin.io.path.relativeTo
 
 private val LOGGER = LogManager.getLogger("FileExplorerPanel")
 
@@ -23,6 +22,7 @@ class FileExplorerPanel(private val tabbedPane: JTabbedPane) : JPanel(), Disposa
     private var lastClick: Long? = null
     private var server: Server? = null
     private var watchService: WatchService? = null
+    private val watchKeyPaths = ConcurrentHashMap<WatchKey, Path>()
 
     init {
         START_SCREEN!!.registerDisposable(this)
@@ -37,7 +37,14 @@ class FileExplorerPanel(private val tabbedPane: JTabbedPane) : JPanel(), Disposa
     }
 
     private fun register(watchService: WatchService, file: File) {
-
+        val path = file.toPath()
+        val key = path.register(watchService, StandardWatchEventKinds.ENTRY_CREATE, StandardWatchEventKinds.ENTRY_DELETE)
+        watchKeyPaths[key] = path
+        file.listFiles()?.forEach {
+            if (it.isDirectory) {
+                register(watchService, it)
+            }
+        }
     }
 
     fun setServer(server: Server) {
@@ -47,43 +54,38 @@ class FileExplorerPanel(private val tabbedPane: JTabbedPane) : JPanel(), Disposa
         dispose()
         thread {
             watchService = FileSystems.getDefault().newWatchService()
-            val path = server.location.toPath()
-            path.register(watchService!!,
-                StandardWatchEventKinds.ENTRY_CREATE,
-                StandardWatchEventKinds.ENTRY_DELETE)
+            watchKeyPaths.clear()
+            register(watchService!!, server.location)
             var key: WatchKey?
             while (true) {
                 try {
                     key = watchService!!.take()
                     if (key == null) break
                     key.pollEvents().forEach {
-                        val relativePath = it.context()
+                        val parent = watchKeyPaths[key]!!
+                        val fullPath = parent.resolve((it.context() as Path))
+                        val relativePath = fullPath.relativeTo(server.location.toPath()).pathString
                         println("${it.kind()} $relativePath")
+                        val model = tree.model as FileTreeModel
+                        when(it.kind()) {
+                            StandardWatchEventKinds.ENTRY_CREATE -> {
+                                SwingUtilities.invokeLater { model.addFile(relativePath) }
+                                val file = fullPath.toFile()
+                                if (file.isDirectory) register(watchService!!, file)
+                                key.reset()
+                            }
+
+                            StandardWatchEventKinds.ENTRY_DELETE -> {
+                                SwingUtilities.invokeLater { model.deleteFile(relativePath) }
+                                watchKeyPaths.remove(key)
+                            }
+                        }
                     }
-                    key.reset()
                 } catch (e: ClosedWatchServiceException) {
-                    LOGGER.info("Closed file watch service")
+                    break
                 }
             }
-//            consumeEach {
-//                val relativePath = it.file.toRelativeString(server.location)
-//                when (it.kind) {
-//                    KWatchEvent.Kind.Created -> {
-//                        println("Adding file")
-//                        (tree.model as FileTreeModel).addFile(relativePath)
-//                    }
-//
-//                    KWatchEvent.Kind.Deleted -> {
-//                        println("File deleted at $relativePath")
-//                    }
-//
-//                    KWatchEvent.Kind.Initialized -> {
-//
-//                    }
-//
-//                    else -> {}
-//                }
-//            }
+            LOGGER.info("Closed file watch service")
         }
     }
 
