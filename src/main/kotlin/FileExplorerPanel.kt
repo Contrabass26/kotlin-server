@@ -1,26 +1,28 @@
-import dev.vishna.watchservice.KWatchChannel
-import dev.vishna.watchservice.KWatchEvent
-import dev.vishna.watchservice.asWatchChannel
-import kotlinx.coroutines.*
-import kotlinx.coroutines.channels.consumeEach
-import java.awt.*
+import org.apache.logging.log4j.LogManager
+import java.awt.GridBagConstraints
+import java.awt.GridBagLayout
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
+import java.io.File
+import java.nio.file.ClosedWatchServiceException
+import java.nio.file.FileSystems
+import java.nio.file.StandardWatchEventKinds
+import java.nio.file.WatchEvent
+import java.nio.file.WatchKey
+import java.nio.file.WatchService
 import javax.swing.JPanel
 import javax.swing.JTabbedPane
 import javax.swing.JTree
-import javax.swing.SwingUtilities
+import kotlin.concurrent.thread
 
-private const val UPDATE_INTERVAL = 5000L
+private val LOGGER = LogManager.getLogger("FileExplorerPanel")
 
 class FileExplorerPanel(private val tabbedPane: JTabbedPane) : JPanel(), Disposable {
 
     private val tree = JTree()
     private var lastClick: Long? = null
     private var server: Server? = null
-    private val mainScope = MainScope()
-    private var watchChannel: KWatchChannel? = null
-    private var updateJob: Job? = null
+    private var watchService: WatchService? = null
 
     init {
         START_SCREEN!!.registerDisposable(this)
@@ -34,34 +36,58 @@ class FileExplorerPanel(private val tabbedPane: JTabbedPane) : JPanel(), Disposa
         background = tree.background
     }
 
-    fun setServer(server: Server?) {
+    private fun register(watchService: WatchService, file: File) {
+
+    }
+
+    fun setServer(server: Server) {
         this.server = server
+        tree.model = FileTreeModel(server.location)
         // Start listening for file updates
-        updateJob?.cancel()
-        watchChannel?.close()
-        val watchChannel = server!!.location.asWatchChannel()
-        updateJob = mainScope.launch {
-            watchChannel.consumeEach {
-                val relativePath = it.file.toRelativeString(server.location)
-                when (it.kind) {
-                    KWatchEvent.Kind.Created -> {
-                        println("File created at $relativePath")
+        dispose()
+        thread {
+            watchService = FileSystems.getDefault().newWatchService()
+            val path = server.location.toPath()
+            path.register(watchService!!,
+                StandardWatchEventKinds.ENTRY_CREATE,
+                StandardWatchEventKinds.ENTRY_DELETE)
+            var key: WatchKey?
+            while (true) {
+                try {
+                    key = watchService!!.take()
+                    if (key == null) break
+                    key.pollEvents().forEach {
+                        val relativePath = it.context()
+                        println("${it.kind()} $relativePath")
                     }
-                    KWatchEvent.Kind.Deleted -> {
-                        println("File deleted at $relativePath")
-                    }
-                    KWatchEvent.Kind.Initialized -> {
-                        tree.model = FileTreeModel(server.location)
-                    }
-                    else -> {}
+                    key.reset()
+                } catch (e: ClosedWatchServiceException) {
+                    LOGGER.info("Closed file watch service")
                 }
             }
+//            consumeEach {
+//                val relativePath = it.file.toRelativeString(server.location)
+//                when (it.kind) {
+//                    KWatchEvent.Kind.Created -> {
+//                        println("Adding file")
+//                        (tree.model as FileTreeModel).addFile(relativePath)
+//                    }
+//
+//                    KWatchEvent.Kind.Deleted -> {
+//                        println("File deleted at $relativePath")
+//                    }
+//
+//                    KWatchEvent.Kind.Initialized -> {
+//
+//                    }
+//
+//                    else -> {}
+//                }
+//            }
         }
     }
 
     override fun dispose() {
-        watchChannel?.close()
-        watchChannel = null
-        mainScope.cancel()
+        watchService?.close()
     }
 }

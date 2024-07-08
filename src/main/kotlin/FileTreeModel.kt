@@ -1,8 +1,13 @@
 import java.io.File
+import java.util.*
 import javax.swing.tree.DefaultMutableTreeNode
 import javax.swing.tree.DefaultTreeModel
+import javax.swing.tree.MutableTreeNode
+import javax.swing.tree.TreeNode
 
-class FileTreeModel(rootDir: File) : DefaultTreeModel(DefaultMutableTreeNode(rootDir.name)) {
+class FileTreeModel(rootDir: File) : DefaultTreeModel(DefaultMutableTreeNode(rootDir.absolutePath)) {
+
+    private val rootPath = rootDir.absolutePath
 
     init {
         explore(rootDir, root as DefaultMutableTreeNode)
@@ -18,8 +23,32 @@ class FileTreeModel(rootDir: File) : DefaultTreeModel(DefaultMutableTreeNode(roo
         }
     }
 
-    fun addFile(path: String) {
-        var root = this.root
+    private fun TreeNode.getChild(child: Any): TreeNode? = children().asSequence().find { it == child }
 
+    private fun insertNodeInto(newChild: DefaultMutableTreeNode, parent: MutableTreeNode) {
+        val childValue = newChild.userObject as String
+        var index = parent.children()
+            .asSequence()
+            .map { it as DefaultMutableTreeNode }
+            .map { it.userObject as String }
+            .indexOfFirst { childValue < it }
+        if (index == -1) index = parent.childCount
+        insertNodeInto(newChild, parent, index)
+    }
+
+    fun addFile(path: String) {
+        var current = this.root as MutableTreeNode
+        val splits = path.split(File.separatorChar)
+        for (split in splits) {
+            val child = current.getChild(split) as MutableTreeNode?
+            if (child == null) {
+                // Add a child
+                val newChild = DefaultMutableTreeNode(split)
+                insertNodeInto(newChild, current)
+                current = newChild
+            } else {
+                current = child
+            }
+        }
     }
 }

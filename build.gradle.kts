@@ -43,9 +43,6 @@ dependencies {
     // Log4j
     implementation("org.apache.logging.log4j:log4j-api:2.21.1")
     implementation("org.apache.logging.log4j:log4j-core:2.21.1")
-
-    // Kotlin watch service
-    implementation("com.github.vishna:watchservice-ktx:master-SNAPSHOT")
 }
 
 tasks.test {
