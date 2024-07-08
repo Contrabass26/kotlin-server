@@ -1,8 +1,6 @@
 import org.apache.logging.log4j.LogManager
 import java.awt.GridBagConstraints
 import java.awt.GridBagLayout
-import java.awt.event.MouseAdapter
-import java.awt.event.MouseEvent
 import java.io.File
 import java.nio.file.*
 import java.util.concurrent.ConcurrentHashMap
@@ -10,16 +8,17 @@ import javax.swing.JPanel
 import javax.swing.JTabbedPane
 import javax.swing.JTree
 import javax.swing.SwingUtilities
+import javax.swing.tree.DefaultMutableTreeNode
+import javax.swing.tree.TreeSelectionModel
 import kotlin.concurrent.thread
 import kotlin.io.path.pathString
 import kotlin.io.path.relativeTo
 
 private val LOGGER = LogManager.getLogger("FileExplorerPanel")
 
-class FileExplorerPanel(private val tabbedPane: JTabbedPane) : JPanel(), Disposable {
+class FileExplorerPanel(private val tabbedPane: MainTabbedPane) : JPanel(), Disposable {
 
     private val tree = JTree()
-    private var lastClick: Long? = null
     private var server: Server? = null
     private var watchService: WatchService? = null
     private val watchKeyPaths = ConcurrentHashMap<WatchKey, Path>()
@@ -27,18 +26,28 @@ class FileExplorerPanel(private val tabbedPane: JTabbedPane) : JPanel(), Disposa
     init {
         START_SCREEN!!.registerDisposable(this)
         layout = GridBagLayout()
-        tree.addMouseListener(object : MouseAdapter() {
-            override fun mouseClicked(e: MouseEvent?) {
-
+        tree.selectionModel.selectionMode = TreeSelectionModel.SINGLE_TREE_SELECTION
+        tree.addTreeSelectionListener {
+            val path = tree.getPathForRow(tree.selectionRows!![0]).path
+            val relativePath = path.asSequence()
+                .map { it as DefaultMutableTreeNode }
+                .drop(1) // Get rid of root
+                .joinToString(separator = File.separator) { it.userObject as String }
+            val handler = FileHandler.get(relativePath)
+            if (handler != null) {
+                tabbedPane.openFile(relativePath, handler)
             }
-        })
+        }
         add(tree, getConstraints(1, 1, fill = GridBagConstraints.BOTH, ipadx = 10, ipady = 10))
         background = tree.background
     }
 
     private fun register(watchService: WatchService, file: File) {
         val path = file.toPath()
-        val key = path.register(watchService, StandardWatchEventKinds.ENTRY_CREATE, StandardWatchEventKinds.ENTRY_DELETE)
+        val key = path.register(watchService,
+            StandardWatchEventKinds.ENTRY_CREATE,
+            StandardWatchEventKinds.ENTRY_DELETE,
+            StandardWatchEventKinds.ENTRY_MODIFY)
         watchKeyPaths[key] = path
         file.listFiles()?.forEach {
             if (it.isDirectory) {
@@ -51,10 +60,9 @@ class FileExplorerPanel(private val tabbedPane: JTabbedPane) : JPanel(), Disposa
         this.server = server
         tree.model = FileTreeModel(server.location)
         // Start listening for file updates
-        dispose()
         thread {
+            dispose()
             watchService = FileSystems.getDefault().newWatchService()
-            watchKeyPaths.clear()
             register(watchService!!, server.location)
             var key: WatchKey?
             while (true) {
@@ -65,7 +73,6 @@ class FileExplorerPanel(private val tabbedPane: JTabbedPane) : JPanel(), Disposa
                         val parent = watchKeyPaths[key]!!
                         val fullPath = parent.resolve((it.context() as Path))
                         val relativePath = fullPath.relativeTo(server.location.toPath()).pathString
-                        println("${it.kind()} $relativePath")
                         val model = tree.model as FileTreeModel
                         when(it.kind()) {
                             StandardWatchEventKinds.ENTRY_CREATE -> {
@@ -76,8 +83,14 @@ class FileExplorerPanel(private val tabbedPane: JTabbedPane) : JPanel(), Disposa
                             }
 
                             StandardWatchEventKinds.ENTRY_DELETE -> {
-                                SwingUtilities.invokeLater { model.deleteFile(relativePath) }
-                                watchKeyPaths.remove(key)
+                                SwingUtilities.invokeLater {
+                                    model.deleteFile(relativePath)
+                                    tabbedPane.closeFile(relativePath)
+                                }
+                            }
+
+                            StandardWatchEventKinds.ENTRY_MODIFY -> {
+                                tabbedPane.updateFile(relativePath)
                             }
                         }
                     }
@@ -91,5 +104,6 @@ class FileExplorerPanel(private val tabbedPane: JTabbedPane) : JPanel(), Disposa
 
     override fun dispose() {
         watchService?.close()
+        watchKeyPaths.clear()
     }
 }

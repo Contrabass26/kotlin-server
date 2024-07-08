@@ -1,10 +1,8 @@
-import java.awt.Dimension
 import java.awt.GridBagConstraints
 import java.awt.GridBagLayout
 import java.awt.event.WindowAdapter
 import java.awt.event.WindowEvent
 import javax.swing.JFrame
-import javax.swing.JTabbedPane
 
 class MainScreen : JFrame("Minecraft wrapper") {
 
@@ -12,6 +10,7 @@ class MainScreen : JFrame("Minecraft wrapper") {
     private val fileExplorer: FileExplorerPanel
     private val console = ConsolePanel()
     val statusPanel = StatusPanel()
+    val tabbedPane: MainTabbedPane
 
     init {
         extendedState = MAXIMIZED_BOTH
@@ -24,12 +23,7 @@ class MainScreen : JFrame("Minecraft wrapper") {
         })
         layout = GridBagLayout()
         // Tabbed pane
-        val tabbedPane = object : JTabbedPane() {
-            override fun getPreferredSize(): Dimension {
-                return Dimension((this@MainScreen.width * 0.8).toInt(), this@MainScreen.height)
-            }
-        }
-        tabbedPane.addTab("Console", console)
+        tabbedPane = MainTabbedPane(console)
         add(tabbedPane, getConstraints(2, 1, weightx = 0.8, fill = GridBagConstraints.BOTH))
         // File explorer
         fileExplorer = FileExplorerPanel(tabbedPane)
