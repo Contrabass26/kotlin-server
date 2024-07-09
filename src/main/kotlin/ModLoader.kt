@@ -18,6 +18,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 import javax.swing.JOptionPane
 import javax.swing.JTextPane
+import javax.swing.text.html.HTMLEditorKit
 import javax.xml.XMLConstants
 import javax.xml.parsers.DocumentBuilderFactory
 
@@ -240,18 +241,19 @@ enum class ModLoader {
                 "No relevant build was detected on <a href=$changelogUrl>changelog</a>"
             else
                 "Detected build $initialBuild in <a href=$changelogUrl>changelog</a>"
-            val messageLabel = JTextPane()
-            messageLabel.contentType = "text/html"
-            messageLabel.text = "<html>$message - enter the build to use:</html>"
-            messageLabel.isEditable = false
-            messageLabel.addMouseListener(object : MouseAdapter() {
+            HTMLEditorKit().styleSheet.addRule("a {color:#236db2}")
+            val messagePane = JTextPane()
+            messagePane.contentType = "text/html"
+            messagePane.text = "<html>$message - enter the build to use:</html>"
+            messagePane.isEditable = false
+            messagePane.addMouseListener(object : MouseAdapter() {
                 override fun mouseReleased(e: MouseEvent) {
                     Desktop.getDesktop().browse(URI(changelogUrl))
                 }
             })
             val chosenBuild = JOptionPane.showInputDialog(
                 MAIN_SCREEN,
-                messageLabel,
+                messagePane,
                 "Enter build to use",
                 JOptionPane.QUESTION_MESSAGE,
                 null,

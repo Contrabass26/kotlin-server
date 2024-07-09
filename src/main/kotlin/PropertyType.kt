@@ -4,34 +4,36 @@ enum class PropertyType() {
 
     BOOLEAN {
         override fun isApplicable(type: String?, defaultValue: String?): Boolean {
-            return type != null
-                    && type.lowercase().contains("bool")
-                    || defaultValue != null
-                    && (defaultValue.equals("true", true)
-                    || defaultValue.equals("false", true))
+            return type != null && type.lowercase().contains("bool")
+                    || defaultValue != null && validate(defaultValue)
         }
+
+        override fun validate(value: String) = value.equals("true", true) || value.equals("false", true)
     },
 
     INTEGER {
         override fun isApplicable(type: String?, defaultValue: String?): Boolean {
-            return type != null && type.lowercase().contains("int") || StringUtils.isNumeric(defaultValue)
+            return type != null && type.lowercase().contains("int")
+                    || defaultValue != null && validate(defaultValue)
         }
+
+        override fun validate(value: String) = StringUtils.isNumeric(value)
     },
 
     DOUBLE {
         override fun isApplicable(type: String?, defaultValue: String?): Boolean {
-            if (type != null) {
-                val lowerType = type.lowercase()
-                if (lowerType.contains("float") || lowerType.contains("double") || lowerType.contains("real")) return true
-            }
-            return defaultValue != null && defaultValue.matches("[0-9.]+".toRegex())
+            return type != null
+                    && (type.contains("float", true) || type.contains("double", true) || type.contains("real", true))
+                    || defaultValue != null && validate(defaultValue)
         }
+
+        override fun validate(value: String) = value.matches("[0-9.]+".toRegex())
     },
 
     STRING {
-        override fun isApplicable(type: String?, defaultValue: String?): Boolean {
-            return true
-        }
+        override fun isApplicable(type: String?, defaultValue: String?) = true
+
+        override fun validate(value: String) = true
     };
 
     companion object {
@@ -41,4 +43,10 @@ enum class PropertyType() {
     }
 
     abstract fun isApplicable(type: String?, defaultValue: String?): Boolean
+
+    abstract fun validate(value: String): Boolean
+
+    override fun toString(): String {
+        return StringUtils.capitalize(super.toString().lowercase())
+    }
 }
