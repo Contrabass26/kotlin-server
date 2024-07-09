@@ -33,10 +33,7 @@ class FileExplorerPanel(private val tabbedPane: MainTabbedPane) : JPanel(), Disp
                 .map { it as DefaultMutableTreeNode }
                 .drop(1) // Get rid of root
                 .joinToString(separator = File.separator) { it.userObject as String }
-            val handler = FileHandler.get(relativePath)
-            if (handler != null) {
-                tabbedPane.openFile(relativePath, handler)
-            }
+            tabbedPane.openFile(relativePath, server!!)
         }
         add(tree, getConstraints(1, 1, fill = GridBagConstraints.BOTH, ipadx = 10, ipady = 10))
         background = tree.background
