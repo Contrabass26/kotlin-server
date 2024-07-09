@@ -241,7 +241,7 @@ enum class ModLoader {
                 "No relevant build was detected on <a href=$changelogUrl>changelog</a>"
             else
                 "Detected build $initialBuild in <a href=$changelogUrl>changelog</a>"
-            HTMLEditorKit().styleSheet.addRule("a {color:#236db2}")
+            HTMLEditorKit().styleSheet.addRule("a {color:#236db2,text-decoration:underline}")
             val messagePane = JTextPane()
             messagePane.contentType = "text/html"
             messagePane.text = "<html>$message - enter the build to use:</html>"

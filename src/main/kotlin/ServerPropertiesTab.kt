@@ -4,11 +4,8 @@ import kotlinx.coroutines.launch
 import java.awt.*
 import java.io.File
 import java.io.FileReader
-import java.net.URI
 import java.util.*
 import javax.swing.*
-import javax.swing.border.LineBorder
-import javax.swing.event.HyperlinkEvent
 import javax.swing.table.DefaultTableModel
 import javax.swing.table.TableCellRenderer
 import javax.swing.text.html.HTMLEditorKit
@@ -34,7 +31,7 @@ class ServerPropertiesTab(server: Server) : ServerConfigTab() {
             descriptions = mainScope.async {
                 rows.await().drop(1).associate {
                     val cells = it.select("td")
-                    Pair(cells[0].text(), cells[3].html())
+                    Pair(cells[0].text(), cells[3].html().trim())
                 }
             }
             dataTypes = mainScope.async {
@@ -80,15 +77,15 @@ class ServerPropertiesTab(server: Server) : ServerConfigTab() {
             override fun isCellEditable(row: Int, column: Int) = column == 4
         }
         val descriptionRenderer = object : JTextPane(), TableCellRenderer {
-            private val selectedBorder = Color(21, 65, 106)
+            private val focusBorder = BorderFactory.createLineBorder(Color(21, 65, 106))
+            private val gridBorder = BorderFactory.createMatteBorder(0, 0, 1, 1, Color(235, 235, 235))
 
             init {
                 contentType = "text/html"
                 isEditable = false
                 isOpaque = true
-                addHyperlinkListener {
-                    println("Url clicked")
-                }
+                HTMLEditorKit().styleSheet.addRule("a {text-decoration:none}")
+                HTMLEditorKit().styleSheet.addRule("code {font-size:normal}")
             }
 
             override fun getTableCellRendererComponent(
@@ -101,11 +98,17 @@ class ServerPropertiesTab(server: Server) : ServerConfigTab() {
             ): Component {
                 text = "<html>${value as String}</html>"
                 if (table == null) throw IllegalArgumentException("No table provided")
+                val textColor = if (isSelected) table.selectionForeground else table.foreground
                 background = if (isSelected) table.selectionBackground else table.background
-                foreground = if (isSelected) table.selectionForeground else table.foreground
-                border = if (hasFocus) LineBorder(selectedBorder, 1) else null
-                val color = if (isSelected) "#ffffff" else "#236db2"
-                HTMLEditorKit().styleSheet.addRule("a {color:$color}")
+                foreground = textColor
+                val outerBorder = if (hasFocus) focusBorder else if (isSelected) null else gridBorder
+                val innerBorder = if (outerBorder == null) BorderFactory.createEmptyBorder(3, 3, 3, 3) else BorderFactory.createEmptyBorder(2, 2, 2, 3)
+                border = BorderFactory.createCompoundBorder(outerBorder, innerBorder)
+                val textColorHex = textColor.run { String.format("#%02x%02x%02x", red, green, blue) }
+                HTMLEditorKit().styleSheet.addRule("a {color:$textColorHex}")
+                val width = table.columnModel.getColumn(column).width
+                size = Dimension(width, 20)
+                table.setRowHeight(row, preferredSize.height)
                 return this
             }
         }
@@ -120,6 +123,8 @@ class ServerPropertiesTab(server: Server) : ServerConfigTab() {
         table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION)
         table.preferredScrollableViewportSize = Dimension(500, 300)
         table.fillsViewportHeight = true
+        table.showHorizontalLines = true
+        table.showVerticalLines = true
         mainScope.launch {
             properties.forEach {
                 val key = it.key as String
