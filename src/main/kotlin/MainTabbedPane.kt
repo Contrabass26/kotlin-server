@@ -27,9 +27,20 @@ class MainTabbedPane(console: ConsolePanel) : JTabbedPane() {
         }
     }
 
+    fun dispose() {
+        // Close all tabs
+        for (i in 1..<tabCount) {
+            val tab = getComponentAt(1) as ServerConfigTab
+            tab.onCloseTab()
+            removeTabAt(1)
+        }
+    }
+
     fun updateFile(relativePath: String) {
-        if (indexOfTab(relativePath) != -1) {
-            println("Updating $relativePath")
+        val index = indexOfTab(relativePath)
+        if (index != -1) {
+            val tab = getComponentAt(index) as ServerConfigTab
+            tab.onFileUpdate()
         }
     }
 

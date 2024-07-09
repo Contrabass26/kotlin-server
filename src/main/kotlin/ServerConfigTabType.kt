@@ -1,12 +1,13 @@
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 
-abstract class ServerConfigTabType : Disposable {
+abstract class ServerConfigTabType {
 
     val mainScope = MainScope()
 
     companion object {
         private val INSTANCES = mutableListOf<ServerConfigTabType>()
+
         val SERVER_PROPERTIES = register(object : ServerConfigTabType() {
             override fun canOpenFile(relativePath: String) = relativePath == "server.properties"
 
@@ -21,13 +22,13 @@ abstract class ServerConfigTabType : Disposable {
             INSTANCES.add(type)
             return type
         }
+
+        fun dispose() {
+            INSTANCES.forEach { it.mainScope.cancel() }
+        }
     }
 
     abstract fun canOpenFile(relativePath: String): Boolean
 
     abstract fun createTab(server: Server): ServerConfigTab
-
-    override fun dispose() {
-        mainScope.cancel()
-    }
 }

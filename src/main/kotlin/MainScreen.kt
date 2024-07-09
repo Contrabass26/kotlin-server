@@ -10,17 +10,11 @@ class MainScreen : JFrame("Minecraft wrapper") {
     private val fileExplorer: FileExplorerPanel
     private val console = ConsolePanel()
     val statusPanel = StatusPanel()
-    val tabbedPane: MainTabbedPane
+    private val tabbedPane: MainTabbedPane
 
     init {
         extendedState = MAXIMIZED_BOTH
         defaultCloseOperation = DO_NOTHING_ON_CLOSE
-        addWindowListener(object : WindowAdapter() {
-            override fun windowClosing(e: WindowEvent?) {
-                START_SCREEN!!.isVisible = true
-                isVisible = false
-            }
-        })
         layout = GridBagLayout()
         // Tabbed pane
         tabbedPane = MainTabbedPane(console)
@@ -30,9 +24,19 @@ class MainScreen : JFrame("Minecraft wrapper") {
         add(fileExplorer, getConstraints(1, 1, weightx = 0.2, fill = GridBagConstraints.BOTH, insets = getInsets(5, 5, 5, 5)))
         // Status bar
         add(statusPanel, getConstraints(1, 2, gridwidth = 2, weightx = 1.0))
+        // Window listener
+        addWindowListener(object : WindowAdapter() {
+            override fun windowClosing(e: WindowEvent?) {
+                START_SCREEN!!.isVisible = true
+                isVisible = false
+                fileExplorer.dispose()
+                tabbedPane.dispose()
+            }
+        })
     }
 
     fun setServer(server: Server) {
+        this.title = server.name
         this.server = server
         server.lastOpened = System.currentTimeMillis()
         fileExplorer.setServer(server)

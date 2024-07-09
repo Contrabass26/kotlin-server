@@ -24,6 +24,7 @@ var MAIN_SCREEN: MainScreen? = null
 var STATUS_PANEL: StatusPanel? = null
 var statusUpdateJob: Job? = null
 var modLoaderInitJob: Job? = null
+var DARK_THEME = true
 
 fun cancelJob(job: Job?, name: String = "job"): Job? {
     if (job != null) {
@@ -40,9 +41,9 @@ class Main {
             modLoaderInitJob = launch { ModLoader.init() }
             // Initialise GUI appearance
             val themeDetector = OsThemeDetector.getDetector()
-            val isDark = themeDetector.isDark
-            LOGGER.info("Setting dark theme = $isDark")
-            if (isDark) {
+            DARK_THEME = themeDetector.isDark
+            LOGGER.info("Setting dark theme = $DARK_THEME")
+            if (DARK_THEME) {
                 FlatDarculaLaf.setup()
             } else {
                 FlatLightLaf.setup()

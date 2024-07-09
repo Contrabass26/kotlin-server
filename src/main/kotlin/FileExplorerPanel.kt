@@ -5,7 +5,6 @@ import java.io.File
 import java.nio.file.*
 import java.util.concurrent.ConcurrentHashMap
 import javax.swing.JPanel
-import javax.swing.JTabbedPane
 import javax.swing.JTree
 import javax.swing.SwingUtilities
 import javax.swing.tree.DefaultMutableTreeNode
@@ -16,7 +15,7 @@ import kotlin.io.path.relativeTo
 
 private val LOGGER = LogManager.getLogger("FileExplorerPanel")
 
-class FileExplorerPanel(private val tabbedPane: MainTabbedPane) : JPanel(), Disposable {
+class FileExplorerPanel(private val tabbedPane: MainTabbedPane) : JPanel() {
 
     private val tree = JTree()
     private var server: Server? = null
@@ -24,7 +23,6 @@ class FileExplorerPanel(private val tabbedPane: MainTabbedPane) : JPanel(), Disp
     private val watchKeyPaths = ConcurrentHashMap<WatchKey, Path>()
 
     init {
-        START_SCREEN!!.registerDisposable(this)
         layout = GridBagLayout()
         tree.selectionModel.selectionMode = TreeSelectionModel.SINGLE_TREE_SELECTION
         tree.addTreeSelectionListener {
@@ -87,6 +85,7 @@ class FileExplorerPanel(private val tabbedPane: MainTabbedPane) : JPanel(), Disp
                             }
 
                             StandardWatchEventKinds.ENTRY_MODIFY -> {
+                                println("Received update event")
                                 tabbedPane.updateFile(relativePath)
                             }
                         }
@@ -99,7 +98,7 @@ class FileExplorerPanel(private val tabbedPane: MainTabbedPane) : JPanel(), Disp
         }
     }
 
-    override fun dispose() {
+    fun dispose() {
         watchService?.close()
         watchKeyPaths.clear()
     }

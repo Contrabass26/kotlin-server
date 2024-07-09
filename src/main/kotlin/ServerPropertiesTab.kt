@@ -1,9 +1,12 @@
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
+import org.apache.logging.log4j.LogManager
 import java.awt.*
+import java.io.BufferedWriter
 import java.io.File
 import java.io.FileReader
+import java.io.FileWriter
 import java.util.*
 import javax.swing.*
 import javax.swing.table.DefaultTableModel
@@ -14,7 +17,9 @@ private fun Properties.load(file: File) {
     load(FileReader(file))
 }
 
-class ServerPropertiesTab(server: Server) : ServerConfigTab() {
+private val LOGGER = LogManager.getLogger("ServerPropertiesTab")
+
+class ServerPropertiesTab(private val server: Server) : ServerConfigTab() {
     
     companion object {
         private val mainScope = ServerConfigTabType.SERVER_PROPERTIES.mainScope
@@ -63,22 +68,23 @@ class ServerPropertiesTab(server: Server) : ServerConfigTab() {
         }
     }
 
-    private val properties: Properties
+    private lateinit var properties: Properties
+    private val tableModel: DefaultTableModel
 
     init {
         layout = GridBagLayout()
-        properties = Properties()
-        properties.load(server.relativeFile("server.properties"))
         // Table
         val headings = arrayOf("Name", "Description", "Default value", "Data type", "Value")
-        val tableModel = object : DefaultTableModel(0, headings.size) {
+        tableModel = object : DefaultTableModel(0, headings.size) {
             override fun getColumnName(column: Int) = headings[column]
 
             override fun isCellEditable(row: Int, column: Int) = column == 4
         }
         val descriptionRenderer = object : JTextPane(), TableCellRenderer {
-            private val focusBorder = BorderFactory.createLineBorder(Color(21, 65, 106))
-            private val gridBorder = BorderFactory.createMatteBorder(0, 0, 1, 1, Color(235, 235, 235))
+            private val focusColor = if (DARK_THEME) Color(109, 138, 192) else Color(21, 65, 106)
+            private val focusBorder = BorderFactory.createLineBorder(focusColor)
+            private val gridColor = if (DARK_THEME) Color(90, 94, 96) else Color(235, 235, 235)
+            private val gridBorder = BorderFactory.createMatteBorder(0, 0, 1, 1, gridColor)
 
             init {
                 contentType = "text/html"
@@ -88,21 +94,17 @@ class ServerPropertiesTab(server: Server) : ServerConfigTab() {
                 HTMLEditorKit().styleSheet.addRule("code {font-size:normal}")
             }
 
-            override fun getTableCellRendererComponent(
-                table: JTable?,
-                value: Any?,
-                isSelected: Boolean,
-                hasFocus: Boolean,
-                row: Int,
-                column: Int
-            ): Component {
+            override fun getTableCellRendererComponent(table: JTable?, value: Any?, isSelected: Boolean, hasFocus: Boolean, row: Int, column: Int): Component { //6d8ac0
                 text = "<html>${value as String}</html>"
                 if (table == null) throw IllegalArgumentException("No table provided")
                 val textColor = if (isSelected) table.selectionForeground else table.foreground
                 background = if (isSelected) table.selectionBackground else table.background
                 foreground = textColor
                 val outerBorder = if (hasFocus) focusBorder else if (isSelected) null else gridBorder
-                val innerBorder = if (outerBorder == null) BorderFactory.createEmptyBorder(3, 3, 3, 3) else BorderFactory.createEmptyBorder(2, 2, 2, 3)
+                val innerBorder = if (outerBorder == null)
+                    BorderFactory.createEmptyBorder(3, 3, 3, 3)
+                else
+                    BorderFactory.createEmptyBorder(2, 2, 2, 3)
                 border = BorderFactory.createCompoundBorder(outerBorder, innerBorder)
                 val textColorHex = textColor.run { String.format("#%02x%02x%02x", red, green, blue) }
                 HTMLEditorKit().styleSheet.addRule("a {color:$textColorHex}")
@@ -125,6 +127,27 @@ class ServerPropertiesTab(server: Server) : ServerConfigTab() {
         table.fillsViewportHeight = true
         table.showHorizontalLines = true
         table.showVerticalLines = true
+        val tableScrollPane = JScrollPane(table, ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED)
+        add(tableScrollPane, getConstraints(fill = GridBagConstraints.BOTH))
+        loadProperties()
+    }
+
+    override fun onCloseTab() {
+        BufferedWriter(FileWriter(server.relativeFile("server.properties"))).use {
+            properties.store(it, null)
+        }
+    }
+
+    private fun loadProperties() {
+        // Delete existing rows
+        SwingUtilities.invokeLater {
+            for (i in 0..<tableModel.rowCount) {
+                tableModel.removeRow(0)
+            }
+        }
+        // Add new ones
+        properties = Properties()
+        properties.load(server.relativeFile("server.properties"))
         mainScope.launch {
             properties.forEach {
                 val key = it.key as String
@@ -136,11 +159,10 @@ class ServerPropertiesTab(server: Server) : ServerConfigTab() {
                 }
             }
         }
-        val tableScrollPane = JScrollPane(table, ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED)
-        add(tableScrollPane, getConstraints(fill = GridBagConstraints.BOTH))
     }
 
-    override fun onCloseTab() {
-
+    override fun onFileUpdate() {
+        loadProperties()
+        LOGGER.info("Reloaded properties from file")
     }
 }

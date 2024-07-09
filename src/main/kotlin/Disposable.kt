@@ -1,4 +1,0 @@
-interface Disposable {
-
-    fun dispose()
-}
