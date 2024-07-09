@@ -1,19 +1,11 @@
-import java.awt.Component
 import java.awt.Dimension
 import java.awt.GridBagConstraints
 import java.awt.GridBagLayout
 import java.io.File
 import java.io.FileReader
 import java.util.*
-import javax.swing.CellEditor
-import javax.swing.DefaultCellEditor
-import javax.swing.JScrollPane
-import javax.swing.JTable
-import javax.swing.ListSelectionModel
-import javax.swing.ScrollPaneConstants
-import javax.swing.event.CellEditorListener
+import javax.swing.*
 import javax.swing.table.DefaultTableModel
-import javax.swing.table.TableCellEditor
 
 private fun Properties.load(file: File) {
     load(FileReader(file))
@@ -39,45 +31,15 @@ class ServerPropertiesTab(server: Server) : ServerConfigTab() {
         table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION)
         table.preferredScrollableViewportSize = Dimension(500, 300)
         table.fillsViewportHeight = true
-        table.cellEditor = object : DefaultCellEditor() {
-            override fun getCellEditorValue(): Any {
-                TODO("Not yet implemented")
+        table.inputVerifier = object : InputVerifier() {
+            override fun verify(input: JComponent?): Boolean {
+                return true
             }
 
-            override fun isCellEditable(anEvent: EventObject?): Boolean {
-                TODO("Not yet implemented")
+            override fun shouldYieldFocus(source: JComponent?, target: JComponent?): Boolean {
+                if (source !is JTable) throw IllegalArgumentException("Source is not JTable")
+                val editingKey = source.getValueAt(source.editingRow, 0)
             }
-
-            override fun shouldSelectCell(anEvent: EventObject?): Boolean {
-                TODO("Not yet implemented")
-            }
-
-            override fun stopCellEditing(): Boolean {
-                TODO("Not yet implemented")
-            }
-
-            override fun cancelCellEditing() {
-                TODO("Not yet implemented")
-            }
-
-            override fun addCellEditorListener(l: CellEditorListener?) {
-                TODO("Not yet implemented")
-            }
-
-            override fun removeCellEditorListener(l: CellEditorListener?) {
-                TODO("Not yet implemented")
-            }
-
-            override fun getTableCellEditorComponent(
-                table: JTable?,
-                value: Any?,
-                isSelected: Boolean,
-                row: Int,
-                column: Int
-            ): Component {
-                TODO("Not yet implemented")
-            }
-
         }
         properties.forEach {
             tableModel.addRow(arrayOf(it.key, "Not found", it.value))
@@ -87,6 +49,6 @@ class ServerPropertiesTab(server: Server) : ServerConfigTab() {
     }
 
     override fun onCloseTab() {
-        println("Closing server properties tab")
+
     }
 }
