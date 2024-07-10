@@ -21,7 +21,7 @@ class MainTabbedPane(console: ConsolePanel) : JTabbedPane() {
     fun closeFile(relativePath: String) {
         val index = indexOfTab(relativePath)
         if (index != -1) {
-            val tab = getTabComponentAt(index) as ServerConfigTab
+            val tab = getComponentAt(index) as ServerConfigTab
             removeTabAt(index)
             tab.onCloseTab()
         }

@@ -79,6 +79,14 @@ class ServerPropertiesTab(private val server: Server) : ServerConfigTab() {
             override fun getColumnName(column: Int) = headings[column]
 
             override fun isCellEditable(row: Int, column: Int) = column == 4
+
+            override fun setValueAt(value: Any?, row: Int, column: Int) {
+                super.setValueAt(value, row, column)
+                if (column == 4) {
+                    val key = getValueAt(row, 0) as String
+                    properties[key] = value
+                }
+            }
         }
         val descriptionRenderer = object : JTextPane(), TableCellRenderer {
             private val focusColor = if (DARK_THEME) Color(109, 138, 192) else Color(21, 65, 106)

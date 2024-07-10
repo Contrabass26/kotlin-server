@@ -14,6 +14,12 @@ abstract class ServerConfigTabType {
             override fun createTab(server: Server) = ServerPropertiesTab(server)
         })
 
+        val OPERATORS = register(object : ServerConfigTabType() {
+            override fun canOpenFile(relativePath: String) = relativePath == "ops.json"
+
+            override fun createTab(server: Server) = OpsTab(server)
+        })
+
         fun getForFile(relativePath: String): ServerConfigTabType? {
             return INSTANCES.find { it.canOpenFile(relativePath) }
         }

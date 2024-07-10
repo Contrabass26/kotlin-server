@@ -26,12 +26,14 @@ class FileExplorerPanel(private val tabbedPane: MainTabbedPane) : JPanel() {
         layout = GridBagLayout()
         tree.selectionModel.selectionMode = TreeSelectionModel.SINGLE_TREE_SELECTION
         tree.addTreeSelectionListener {
-            val path = tree.getPathForRow(tree.selectionRows!![0]).path
-            val relativePath = path.asSequence()
-                .map { it as DefaultMutableTreeNode }
-                .drop(1) // Get rid of root
-                .joinToString(separator = File.separator) { it.userObject as String }
-            tabbedPane.openFile(relativePath, server!!)
+            if (tree.selectionCount > 0) {
+                val path = tree.getPathForRow(tree.selectionRows!![0]).path
+                val relativePath = path.asSequence()
+                    .map { it as DefaultMutableTreeNode }
+                    .drop(1) // Get rid of root
+                    .joinToString(separator = File.separator) { it.userObject as String }
+                tabbedPane.openFile(relativePath, server!!)
+            }
         }
         add(tree, getConstraints(1, 1, fill = GridBagConstraints.BOTH, ipadx = 10, ipady = 10))
         background = tree.background
@@ -74,7 +76,6 @@ class FileExplorerPanel(private val tabbedPane: MainTabbedPane) : JPanel() {
                                 SwingUtilities.invokeLater { model.addFile(relativePath) }
                                 val file = fullPath.toFile()
                                 if (file.isDirectory) register(watchService!!, file)
-                                key.reset()
                             }
 
                             StandardWatchEventKinds.ENTRY_DELETE -> {
@@ -85,10 +86,10 @@ class FileExplorerPanel(private val tabbedPane: MainTabbedPane) : JPanel() {
                             }
 
                             StandardWatchEventKinds.ENTRY_MODIFY -> {
-                                println("Received update event")
                                 tabbedPane.updateFile(relativePath)
                             }
                         }
+                        key.reset()
                     }
                 } catch (e: ClosedWatchServiceException) {
                     break

@@ -16,14 +16,8 @@ import java.lang.management.ManagementFactory
 import java.net.HttpURLConnection
 import java.net.URI
 import java.net.URL
-import javax.management.*
-import javax.swing.ComboBoxModel
-import javax.swing.DefaultComboBoxModel
+import javax.management.ObjectName
 import javax.swing.JFrame
-import javax.swing.event.DocumentEvent
-import javax.swing.event.DocumentListener
-import javax.swing.event.ListDataListener
-import javax.swing.text.Document
 import kotlin.math.roundToInt
 
 private val LOGGER = LogManager.getLogger()
@@ -135,17 +129,6 @@ fun Component.refreshGui() {
     revalidate()
 }
 
-// Utility for easy document listeners
-fun Document.addDocumentListener(consumer: (DocumentEvent?) -> Unit) {
-    addDocumentListener(object : DocumentListener {
-        override fun insertUpdate(e: DocumentEvent?) { consumer(e) }
-
-        override fun removeUpdate(e: DocumentEvent?) { consumer(e) }
-
-        override fun changedUpdate(e: DocumentEvent?) { consumer(e) }
-    })
-}
-
 fun getUrl(path: String): URL {
     return URI.create(path).toURL()
 }
@@ -219,6 +202,21 @@ val MC_VERSION_COMPARATOR = Comparator<String> { v1, v2 ->
         .find { it != 0 } ?: 0
 }
 
+suspend fun getPlayerUuid(playerName: String): String {
+    val json = getJson("https://api.mojang.com/users/profiles/minecraft/$playerName")
+    val uuid = json["id"].textValue()
+    return formatUuid(uuid)
+}
+
+fun formatUuid(uuid: String): String {
+    val builder = StringBuilder(uuid)
+    builder.insert(20, '-')
+    builder.insert(16, '-')
+    builder.insert(12, '-')
+    builder.insert(8, '-')
+    return builder.toString()
+}
+
 // Download file
 suspend fun downloadFile(url: URL, destination: File) = withContext(Dispatchers.IO) {
     val status = "Downloading $url"
@@ -233,6 +231,8 @@ suspend fun downloadFile(url: URL, destination: File) = withContext(Dispatchers.
     }
     inputStream.close()
 }
+
+suspend fun getJson(url: String): JsonNode = getJson(getUrl(url))
 
 suspend fun getJson(url: URL): JsonNode = withContext(Dispatchers.IO) {
     val result: Deferred<JsonNode?> = async {
