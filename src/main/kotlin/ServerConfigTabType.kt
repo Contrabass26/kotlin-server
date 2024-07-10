@@ -39,7 +39,7 @@ abstract class ServerConfigTabType {
         })
 
         val REGION = register(object : ServerConfigTabType() {
-            override fun canOpenFile(relativePath: String) = relativePath.matches("r\\.[-0-9]+\\.[-0-9]+\\.mca".toRegex())
+            override fun canOpenFile(relativePath: String) = "r\\.[-0-9]+\\.[-0-9]+\\.mca".toRegex().containsMatchIn(relativePath)
 
             override fun createTab(server: Server, relativePath: String) = RegionTab(server, relativePath)
         })

@@ -1,18 +1,15 @@
 import kotlinx.coroutines.cancel
-import org.jglrxavpok.hephaistos.mca.ChunkColumn
+import kotlinx.coroutines.launch
 import org.jglrxavpok.hephaistos.mca.RegionFile
 import java.awt.Graphics
-import java.awt.image.BufferedImage
 import java.io.RandomAccessFile
+import javax.swing.SwingUtilities
 
 class RegionTab(private val server: Server, private val relativePath: String) : ServerConfigTab() {
 
     private val mainScope = ServerConfigTabType.REGION.mainScope
     private val region: RegionFile
-
-    companion object {
-        private val BLANK_IMAGE = BufferedImage(256, 256, BufferedImage.TYPE_INT_RGB)
-    }
+    private val chunk: Chunk
 
     init {
         val regex = Regex("r\\.([-0-9]+)\\.([-0-9]+)\\.mca")
@@ -21,15 +18,18 @@ class RegionTab(private val server: Server, private val relativePath: String) : 
         val x = matchResult.groups[1]!!.value.toInt()
         val y = matchResult.groups[2]!!.value.toInt()
         region = RegionFile(RandomAccessFile(file.absolutePath, "r"), x, y, 1, 1)
+        // Test image
+        chunk = Chunk(0, 0, region, server)
+        mainScope.launch {
+            chunk.init()
+            println("DONE")
+            SwingUtilities.invokeLater { repaint() }
+        }
     }
 
     override fun paint(g: Graphics?) {
         if (g == null) throw IllegalArgumentException("Graphics is null")
-    }
-
-    private fun getChunkImage(x: Int, y: Int): BufferedImage {
-        val chunk = region.getChunk(x, y) ?: return BLANK_IMAGE
-        ch
+        g.drawImage(chunk.image, 0, 0, null)
     }
 
     override fun onCloseTab() {
