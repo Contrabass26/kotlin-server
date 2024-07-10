@@ -11,31 +11,37 @@ abstract class ServerConfigTabType {
         val SERVER_PROPERTIES = register(object : ServerConfigTabType() {
             override fun canOpenFile(relativePath: String) = relativePath == "server.properties"
 
-            override fun createTab(server: Server) = ServerPropertiesTab(server)
+            override fun createTab(server: Server, relativePath: String) = ServerPropertiesTab(server)
         })
 
         val OPERATORS = register(object : ServerConfigTabType() {
             override fun canOpenFile(relativePath: String) = relativePath == "ops.json"
 
-            override fun createTab(server: Server) = OpsTab(server)
+            override fun createTab(server: Server, relativePath: String) = OpsTab(server)
         })
 
         val WHITELIST = register(object : ServerConfigTabType() {
             override fun canOpenFile(relativePath: String) = relativePath == "whitelist.json"
 
-            override fun createTab(server: Server) = WhitelistTab(server)
+            override fun createTab(server: Server, relativePath: String) = WhitelistTab(server)
         })
 
         val BAN_LIST = register(object : ServerConfigTabType() {
             override fun canOpenFile(relativePath: String) = relativePath == "banned-players.json"
 
-            override fun createTab(server: Server) = BannedPlayersTab(server)
+            override fun createTab(server: Server, relativePath: String) = BannedPlayersTab(server)
         })
 
         val IP_BAN_LIST = register(object : ServerConfigTabType() {
             override fun canOpenFile(relativePath: String) = relativePath == "banned-ips.json"
 
-            override fun createTab(server: Server) = BannedIpsTab(server)
+            override fun createTab(server: Server, relativePath: String) = BannedIpsTab(server)
+        })
+
+        val REGION = register(object : ServerConfigTabType() {
+            override fun canOpenFile(relativePath: String) = relativePath.matches("r\\.[-0-9]+\\.[-0-9]+\\.mca".toRegex())
+
+            override fun createTab(server: Server, relativePath: String) = RegionTab(server, relativePath)
         })
 
         fun getForFile(relativePath: String): ServerConfigTabType? {
@@ -54,5 +60,5 @@ abstract class ServerConfigTabType {
 
     abstract fun canOpenFile(relativePath: String): Boolean
 
-    abstract fun createTab(server: Server): ServerConfigTab
+    abstract fun createTab(server: Server, relativePath: String): ServerConfigTab
 }

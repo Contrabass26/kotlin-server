@@ -194,6 +194,10 @@ fun getMajorVersion(mcVersion: String): String {
     return StringUtils.join(convertVersion(mcVersion).take(2).toList().toTypedArray(), '.')
 }
 
+fun removeNamespace(resourceLocation: String): String {
+    return StringUtils.substringAfter(resourceLocation, ":")
+}
+
 val MC_VERSION_COMPARATOR = Comparator<String> { v1, v2 ->
     val nums1 = convertVersion(v1)
     val nums2 = convertVersion(v2)

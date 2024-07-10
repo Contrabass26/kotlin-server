@@ -43,6 +43,9 @@ dependencies {
     // Log4j
     implementation("org.apache.logging.log4j:log4j-api:2.21.1")
     implementation("org.apache.logging.log4j:log4j-core:2.21.1")
+
+    // NBT and Anvil parsing
+    implementation("io.github.jglrxavpok.hephaistos:common:2.6.1")
 }
 
 tasks.test {

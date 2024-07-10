@@ -11,7 +11,7 @@ class MainTabbedPane(console: ConsolePanel) : JTabbedPane() {
         val tabType = ServerConfigTabType.getForFile(relativePath)
         if (indexOfTab(relativePath) == -1) {
             if (tabType != null)
-                addTab(relativePath, tabType.createTab(server))
+                addTab(relativePath, tabType.createTab(server, relativePath))
         }
         if (tabType != null) {
             selectedIndex = indexOfTab(relativePath)
