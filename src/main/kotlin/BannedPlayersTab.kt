@@ -9,31 +9,21 @@ import java.awt.GridBagLayout
 import javax.swing.*
 import javax.swing.table.DefaultTableModel
 
-private val operatorListType = object : TypeReference<List<OpsTab.Operator>>() {}
+private val banListType = object : TypeReference<List<BannedPlayersTab.Ban>>() {}
 
-fun DefaultTableModel.addRow(vararg value: Any) = addRow(value)
+class BannedPlayersTab(private val server: Server) : ServerConfigTab() {
 
-class OpsTab(private val server: Server) : ServerConfigTab() {
-
-    private val mainScope = ServerConfigTabType.OPERATORS.mainScope
+    private val mainScope = ServerConfigTabType.BAN_LIST.mainScope
     private val tableModel: DefaultTableModel
 
     init {
         layout = GridBagLayout()
         // Main list box
-        val headings = arrayOf("Name", "UUID", "Permission level", "Bypass player limit")
+        val headings = arrayOf("Name", "UUID", "Reason", "Date", "Source", "Duration")
         tableModel = object : DefaultTableModel(0, headings.size) {
             override fun getColumnName(column: Int) = headings[column]
 
             override fun isCellEditable(row: Int, column: Int) = column >= 2
-
-            override fun getColumnClass(columnIndex: Int): Class<*> = when (columnIndex) {
-                0 -> String::class
-                1 -> String::class
-                2 -> Int::class
-                3 -> Boolean::class
-                else -> { throw IllegalArgumentException("Column $columnIndex should not exist") }
-            }.javaObjectType
         }
         val table = JTable(tableModel)
         table.preferredScrollableViewportSize = Dimension(500, 300)
@@ -43,11 +33,11 @@ class OpsTab(private val server: Server) : ServerConfigTab() {
         // Add button
         val addBtn = JButton("Add")
         addBtn.addActionListener {
-            val name = JOptionPane.showInputDialog(MAIN_SCREEN!!, "Enter player name:", "Add operator", JOptionPane.QUESTION_MESSAGE)
+            val name = JOptionPane.showInputDialog(MAIN_SCREEN!!, "Enter player name:", "Ban player", JOptionPane.QUESTION_MESSAGE)
             mainScope.launch {
                 val uuid = getPlayerUuid(name)
                 SwingUtilities.invokeLater {
-                    tableModel.addRow(name, uuid, 4, false)
+                    tableModel.addRow(name, uuid)
                 }
             }
         }
@@ -61,48 +51,52 @@ class OpsTab(private val server: Server) : ServerConfigTab() {
             }
         }
         add(removeBtn, getConstraints(gridx = 2, weightx = 1.0, insets = getInsets(top = 5, bottom = 5, left = 5)))
-        // Load operators from file
-        loadOperators()
+        // Load ban list from file
+        loadBanList()
     }
 
     override fun onCloseTab() {
         mainScope.cancel()
         // Save file
-        val operators: List<Operator> = tableModel.dataVector
-            .map { Operator(
+        val players: List<Ban> = tableModel.dataVector
+            .map { Ban(
                 it[0] as String,
                 it[1] as String,
-                it[2] as Int,
-                it[3] as Boolean
+                it[2] as String,
+                it[3] as String,
+                it[4] as String,
+                it[5] as String
             ) }
-        JSON_MAPPER.writeValue(server.relativeFile("ops.json"), operators)
+        JSON_MAPPER.writeValue(server.relativeFile("banned-players.json"), players)
     }
 
     override fun onFileUpdate() {
-        loadOperators()
+        loadBanList()
     }
 
-    private fun loadOperators() {
+    private fun loadBanList() {
         SwingUtilities.invokeLater {
             for (i in 0..<tableModel.rowCount) {
                 tableModel.removeRow(0)
             }
         }
         mainScope.launch {
-            val operators = JSON_MAPPER.readValue(server.relativeFile("ops.json"), operatorListType)
+            val banList = JSON_MAPPER.readValue(server.relativeFile("banned-players.json"), banListType)
             SwingUtilities.invokeLater {
-                operators.forEach { it.run {
-                    tableModel.addRow(name, uuid, level, bypassLimit)
+                banList.forEach { it.run {
+                    tableModel.addRow(name, uuid, reason, date, source, expires)
                 } }
             }
         }
     }
 
-    data class Operator @JsonCreator constructor(
+    data class Ban @JsonCreator constructor(
         @JsonProperty("name") val name: String,
         @JsonProperty("uuid") val uuid: String,
-        @JsonProperty("level") val level: Int,
-        @JsonProperty("bypassesPlayerLimit") val bypassLimit: Boolean
+        @JsonProperty("reason") val reason: String,
+        @JsonProperty("created") val date: String,
+        @JsonProperty("source") val source: String,
+        @JsonProperty("expires") val expires: String
     ) {
 
         override fun toString() = name

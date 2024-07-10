@@ -20,6 +20,24 @@ abstract class ServerConfigTabType {
             override fun createTab(server: Server) = OpsTab(server)
         })
 
+        val WHITELIST = register(object : ServerConfigTabType() {
+            override fun canOpenFile(relativePath: String) = relativePath == "whitelist.json"
+
+            override fun createTab(server: Server) = WhitelistTab(server)
+        })
+
+        val BAN_LIST = register(object : ServerConfigTabType() {
+            override fun canOpenFile(relativePath: String) = relativePath == "banned-players.json"
+
+            override fun createTab(server: Server) = BannedPlayersTab(server)
+        })
+
+        val IP_BAN_LIST = register(object : ServerConfigTabType() {
+            override fun canOpenFile(relativePath: String) = relativePath == "banned-ips.json"
+
+            override fun createTab(server: Server) = BannedIpsTab(server)
+        })
+
         fun getForFile(relativePath: String): ServerConfigTabType? {
             return INSTANCES.find { it.canOpenFile(relativePath) }
         }
